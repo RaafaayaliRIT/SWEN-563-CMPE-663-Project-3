@@ -1,0 +1,3 @@
+../Core/Src/phase_tests.c:23:6:PhaseTests_Init	56	static
+../Core/Src/phase_tests.c:37:6:PhaseTests_Service	32	static
+../Core/Src/phase_tests.c:62:6:PhaseTests_GetSnapshot	24	static

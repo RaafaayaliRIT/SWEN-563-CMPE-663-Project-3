@@ -1,0 +1,12 @@
+../Core/Inc/core_cm4.h:1679:22:__NVIC_EnableIRQ	16	static,ignoring_inline_asm
+../Core/Inc/core_cm4.h:1809:22:__NVIC_SetPriority	16	static
+../Core/Src/uart.c:58:6:USART_Init	16	static
+../Core/Src/uart.c:131:6:USART_Write	16	static
+../Core/Src/uart.c:142:6:USART_Write_String	16	static
+../Core/Src/uart.c:158:6:USART_Read	4	static
+../Core/Src/uart.c:170:6:USART_Read_NB	16	static
+../Core/Src/uart.c:200:6:USART_TryWrite	48	static,ignoring_inline_asm
+../Core/Src/uart.c:243:6:USART2_RegisterRxCallback	16	static
+../Core/Src/uart.c:252:6:USART2_RegisterRxErrorCallback	16	static
+../Core/Src/uart.c:260:6:USART2_EnableIRQ	8	static
+../Core/Src/uart.c:277:6:USART2_IRQHandler	24	static

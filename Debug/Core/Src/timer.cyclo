@@ -1,0 +1,6 @@
+../Core/Src/timer.c:22:6:timer_init	1
+../Core/Src/timer.c:56:6:timer_start	1
+../Core/Src/timer.c:64:6:timer_stop	1
+../Core/Src/timer.c:72:6:timer_reset	1
+../Core/Src/timer.c:80:10:timer_get_us	1
+../Core/Src/timer.c:88:10:timer_elapsed_us	1

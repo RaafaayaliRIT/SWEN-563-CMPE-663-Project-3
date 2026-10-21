@@ -1,0 +1,4 @@
+../Core/Src/race_display.c:58:6:RaceDisplay_Init	4	static
+../Core/Src/race_display.c:86:13:Display_GetMarker	80	static
+../Core/Src/race_display.c:137:13:Display_RoadAt	16	static
+../Core/Src/race_display.c:160:6:RaceDisplay_Service	1000	static

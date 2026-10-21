@@ -1,0 +1,4 @@
+../Core/Inc/core_cm4.h:1679:22:__NVIC_EnableIRQ	16	static,ignoring_inline_asm
+../Core/Inc/core_cm4.h:1809:22:__NVIC_SetPriority	16	static
+../Core/Src/gpio.c:75:6:GPIO_Init	8	static
+../Core/Src/gpio.c:140:6:EXTI15_10_IRQHandler	8	static

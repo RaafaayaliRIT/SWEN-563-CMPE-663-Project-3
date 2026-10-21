@@ -1,0 +1,4 @@
+../Core/Inc/core_cm4.h:1809:22:__NVIC_SetPriority	16	static
+../Core/Src/timebase.c:30:6:init_systick	8	static
+../Core/Src/timebase.c:71:6:SysTick_Handler	4	static
+../Core/Src/timebase.c:88:10:timebase_get_ms	4	static
