@@ -15,6 +15,8 @@
 #define SERVO_MAX_US             2000U
 #define SERVO_LAST_POSITION      5U
 
+#define ARRAY_LENGTH(x) (sizeof(x) / sizeof((x)[0]))
+
 // Set up PB4 / TIM3_CH1 for 50 Hz PWM and start at position 0
 void Servo_Init(void);
 
