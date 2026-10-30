@@ -9,8 +9,9 @@
 #include "ultrasonic.h"
 #include "timer.h"
 #include "timebase.h"
+#include "LED.h"
 
-const uint32_t POSITION_INCREMENT = (SERVO_MAX_US-SERVO_MIN_US / 6);
+const uint32_t POSITION_INCREMENT = ((SERVO_MAX_US-SERVO_MIN_US) / 6);
 const uint16_t POSITIONS[] =
 {
 	SERVO_MIN_US,
@@ -25,6 +26,7 @@ static RaceDisplay_Snapshot s_view;
 int64_t last_time = -1;
 uint8_t current_position = 0;
 uint8_t direction = 0; // 0 for up, 1 for down
+bool isSuccessful = true;
 
 // Add the test data you need for your sweep and sensor checks
 // You can use these exercises or test directly in your car application
@@ -53,7 +55,6 @@ void PhaseTests_Init(void)
 //******************************************************************************************
 void PhaseTests_Service(uint32_t now_ms)
 {
-	(void)now_ms;
 	Keyboard_Event input;
 	for (uint32_t i = 0; i < PROJECT_INPUT_BUDGET && Keyboard_TakeEvent(&input); i++)
 	{
@@ -68,16 +69,14 @@ void PhaseTests_Service(uint32_t now_ms)
 
 
 
-	bool isSuccessful = true;
-
-
 	// If the first call
 	if(last_time < 0)
 	{
 		isSuccessful = Servo_SetPosition(current_position);
+		last_time = now_ms;
 	}
 	// Handle Up counting
-	else if(now_ms - last_time > PROJECT_SERVO_STEP_MS && direction == 0)
+	else if(isSuccessful && now_ms - last_time > PROJECT_SERVO_STEP_MS && direction == 0)
 	{
 		// Increase Position
 		current_position++;
@@ -91,9 +90,10 @@ void PhaseTests_Service(uint32_t now_ms)
 
 
 		isSuccessful = Servo_SetPosition(current_position);
+		last_time = now_ms;
 	}
 	// Handle Down counting
-	else if(now_ms - last_time > PROJECT_SERVO_STEP_MS && direction == 1)
+	else if(isSuccessful && now_ms - last_time > PROJECT_SERVO_STEP_MS && direction == 1)
 	{
 		// Decrease Position
 		current_position--;
@@ -106,14 +106,16 @@ void PhaseTests_Service(uint32_t now_ms)
 		}
 
 		isSuccessful = Servo_SetPosition(current_position);
+		last_time = now_ms;
 	}
 
 	if(!isSuccessful)
 	{
-		isSuccessful = true;
+		LED_On();
 	}
 
-	last_time = now_ms;
+
+
 
 
 

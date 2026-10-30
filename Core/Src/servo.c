@@ -23,19 +23,18 @@
 #define FRAME_LENGTH (20000)
 
 // Random garbage
-#define TIM_CCMR1_OC1M_PWM_MODE1 (0x00000006)
 #define ALTERNATE_FUNCTION_MODE (0x10)
 #define ALTERNATE_FUNCTION_2 (0x0010)
 #define MEDIUM_SPEED (0x01)
 
-const uint32_t POSITION_INCREMENT2 = (SERVO_MAX_US-SERVO_MIN_US / 6);
+const uint32_t POSITION_INCREMENT2 = ((SERVO_MAX_US-SERVO_MIN_US) / 6);
 const uint16_t POSITIONS2[] =
 {
 	SERVO_MIN_US,
-	SERVO_MIN_US + POSITION_INCREMENT2 * 1,
-	SERVO_MIN_US + POSITION_INCREMENT2 * 2,
-	SERVO_MIN_US + POSITION_INCREMENT2 * 3,
-	SERVO_MIN_US + POSITION_INCREMENT2 * 4,
+	SERVO_MIN_US + (POSITION_INCREMENT2 * 1),
+	SERVO_MIN_US + (POSITION_INCREMENT2 * 2),
+	SERVO_MIN_US + (POSITION_INCREMENT2 * 3),
+	SERVO_MIN_US + (POSITION_INCREMENT2 * 4),
 	SERVO_MAX_US
 };
 
@@ -66,17 +65,17 @@ void Servo_Init(void)
 	TIM3->CR1 &= ~(TIM_CR1_CMS); // Use DIR
 	TIM3->CCER &= ~(CC1E_MASK); // Disable capture compare for channel 1
 	TIM3->DIER &= ~(CC1IE_MASK); // Disable DMA interrupt for channel 1
-	TIM3->SMCR &= ~(TIM_SMCR_SMS | TIM_SMCR_SMS_3); // Disable slave mode
+	TIM3->SMCR &= ~(TIM_SMCR_SMS); // Disable slave mode
 
 	// 3. Prepare time base, PS/ARR/CNT
 	TIM3->PSC = (PROJECT_CLOCK_HZ - TIMER_FREQUENCY_HZ) / TIMER_FREQUENCY_HZ;
-	TIM3->ARR = ((uint32_t) FRAME_LENGTH * (uint32_t) TIMER_FREQUENCY_HZ) - 1;
+	TIM3->ARR = FRAME_LENGTH - 1; // TODO - Frame length should be calculated later
 	TIM3->CNT = 0;
 
 	// 4. Prepare CH1 for TIM3 as PWM mode 1, EN CCR1/ARR preload, CCR1 = 1000
 	TIM3->CCMR1 &= ~(TIM_CCMR1_CC1S);
-	TIM3->CCMR1 &= ~(TIM_CCMR1_OC1M_3); // Why is this not next to the rest, who designed this???
-	TIM3->CCMR1 |= TIM_CCMR1_OC1M_PWM_MODE1 | TIM_CCMR1_OC1PE;
+	TIM3->CCMR1 &= ~(TIM_CCMR1_OC1M);
+	TIM3->CCMR1 |= 0x60 | TIM_CCMR1_OC1PE;
 	TIM3->CR1 |= TIM_CR1_ARPE;
 	TIM3->CCR1 = POSITIONS2[0];
 

@@ -57,7 +57,10 @@ int main(void)
 #if PROJECT_PHASE >= 3
 	Race_Init();
 #else
-	PhaseTests_Init();
+//	PhaseTests_Init();
+
+	Servo_SetPosition(5);
+
 #endif
 
 	GPIO_Init();
