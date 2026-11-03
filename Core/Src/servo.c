@@ -62,10 +62,10 @@ void Servo_Init(void)
 	RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
 
 	// 2. Stop counting and disable channel outputs
-	TIM3->CR1  = 0;   // CEN = 0, DIR = 0, CMS = 00, ARPE = 0
-	TIM3->CCER = 0;   // channel outputs off
-	TIM3->DIER = 0;   // no interrupts or DMA requests
-	TIM3->SMCR = 0;   // no slave mode, internal clock
+	TIM3->CR1  &= ~(TIM_CR1_CEN | TIM_CR1_DIR | TIM_CR1_DIR | TIM_CR1_ARPE);   // CEN = 0, DIR = 0, CMS = 00, ARPE = 0
+	TIM3->CCER = ~(TIM_CCER_CC1E | TIM_CCER_CC1P | TIM_CCER_CC1NP);   // channel outputs off
+	TIM3->DIER = ~(TIM_DIER_UIE | TIM_DIER_CC1IE);   // no interrupts or DMA requests
+	TIM3->SMCR = ~(TIM_SMCR_MSM | TIM_SMCR_ETF | TIM_SMCR_ECE);   // no slave mode, internal clock
 
 	// 3. Prepare time base, PS/ARR/CNT
 	TIM3->PSC = (PROJECT_CLOCK_HZ / SERVO_TIMER_HZ) - 1;   // 80 MHz / 80 = 1 MHz
@@ -82,7 +82,7 @@ void Servo_Init(void)
 
 	// 5. Load the starting values, then clear the startup flag
 	TIM3->EGR = TIM_EGR_UG;
-	TIM3->SR = 0; // we can't set this flag to 1 ever, that is hardware's job we can only set it to 0. our old code for this works, but could cause bugs in the future and this is just more simple
+	TIM3->SR = ~(TIM_SR_UIF); // we can't set this flag to 1 ever, that is hardware's job we can only set it to 0. our old code for this works, but could cause bugs in the future and this is just more simple
 
 	// 6. Prepare PB4 route and driver, AF2/Pushpull/Medium speed/no pulls, MODER4=10
 	// Enable GPIOB Clock Access
