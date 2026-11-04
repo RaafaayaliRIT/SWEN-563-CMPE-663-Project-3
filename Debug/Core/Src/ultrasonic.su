@@ -4,7 +4,7 @@
 ../Core/Src/ultrasonic.c:37:6:Ultrasonic_Init	8	static
 ../Core/Src/ultrasonic.c:107:6:Ultrasonic_Start	16	static
 ../Core/Src/ultrasonic.c:133:6:Ultrasonic_Service	32	static
-../Core/Src/ultrasonic.c:187:18:GetState	4	static
-../Core/Src/ultrasonic.c:195:6:Ultrasonic_HasNewSample	4	static
-../Core/Src/ultrasonic.c:205:6:Ultrasonic_TakeSample	16	static
-../Core/Src/ultrasonic.c:253:6:TIM2_IRQHandler	4	static
+../Core/Src/ultrasonic.c:195:18:GetState	4	static
+../Core/Src/ultrasonic.c:203:6:Ultrasonic_HasNewSample	4	static
+../Core/Src/ultrasonic.c:213:6:Ultrasonic_TakeSample	16	static
+../Core/Src/ultrasonic.c:261:6:TIM2_IRQHandler	4	static

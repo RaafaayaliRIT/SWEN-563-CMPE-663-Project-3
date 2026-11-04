@@ -24,16 +24,21 @@ typedef enum
 } SweepDirection;
 
 // keep this static so only this file has access to these variables, also keep the naming convention from the s_view
+
+// Shared
 static RaceDisplay_Snapshot s_view; // this was the struct we need to use to update the display
+
+// Phase 1
 static bool s_sweep_started = false;
 static uint32_t s_last_step_ms = 0;
 static uint8_t s_position = 0;
 static SweepDirection s_direction = SWEEP_UP;
 static bool s_servo_ok = true; // false = error state;
-static int64_t last_sample_us = -1;
+
+// Phase 2
+uint8_t firstExecution = 1;
+uint32_t last_sample_us = 0;
 Ultrasonic_Sample sample;
-
-
 
 
 //******************************************************************************************
@@ -150,8 +155,8 @@ void PhaseTests_Service(uint32_t now_ms)
 
 	// Call Ultrasonic_Service every pass
 	// If the sample interval has elapsed and the sensor is idle
-	// Request one measurement
-	// Record the request time if accepted
+		// Request one measurement
+		// Record the request time if accepted
 	// If a new valid sample is available
 		// Save the distance in the Phase 2 snapshot
 		// Show SENSOR VALID
@@ -159,44 +164,45 @@ void PhaseTests_Service(uint32_t now_ms)
 		// Show SENSOR TIMEOUT
 	// Return
 
-
+	// Get now_us
 	uint32_t now_us = now_ms * 1000;
 
-
-
 	// First iteration previous sample time
-	if(last_sample_us < 0)
+	if(firstExecution)
 	{
 		last_sample_us = now_us;
 
-
+		firstExecution = 0;
 	}
 
+	// Call Ultrasonic_Service
+	Ultrasonic_Service(now_us);
 
-
-
-
-	// If sample interval has elapsed and sensor is idle
+	// If ultrasonic interval has elapsed and sensor is idle
 	if(CalculateTimeElapsed(now_us, last_sample_us) > ULTRASONIC_INTERVAL_US && GetState() == ULTRASONIC_IDLE_STATE)
 	{
+		// Start finding a new distance
 		Ultrasonic_Start(now_us);
+
+		// TODO - "Record the request time if accepted"?
 	}
 
-	if(Ultrasonic_HasNewSample())
+	// If a new valid sample is available
+	if(Ultrasonic_TakeSample(&sample))
 	{
-		Ultrasonic_Sample sample;
-		Ultrasonic_TakeSample(&sample);
-		s_view.sensor_result = sample.result;
+		// Save the distance in the phase 2 snapshot
 		s_view.sensor_distance_mm = sample.distance_mm;
+
+		// Save the result into the phase 2 snapshot
+		s_view.sensor_result = sample.result;
+
+		// TODO - Show "SENSOR VALID"
 	}
-
-
-
-
-
-
-
-
+	// If the sample was invalid or was a null pointer
+	else
+	{
+		// TODO - Show "SENSOR TIMEOUT"
+	}
 
 #endif
 }

@@ -3,8 +3,8 @@
 ../Core/Inc/core_cm4.h:1809:22:__NVIC_SetPriority	2
 ../Core/Src/ultrasonic.c:37:6:Ultrasonic_Init	1
 ../Core/Src/ultrasonic.c:107:6:Ultrasonic_Start	2
-../Core/Src/ultrasonic.c:133:6:Ultrasonic_Service	6
-../Core/Src/ultrasonic.c:187:18:GetState	1
-../Core/Src/ultrasonic.c:195:6:Ultrasonic_HasNewSample	3
-../Core/Src/ultrasonic.c:205:6:Ultrasonic_TakeSample	3
-../Core/Src/ultrasonic.c:253:6:TIM2_IRQHandler	4
+../Core/Src/ultrasonic.c:133:6:Ultrasonic_Service	7
+../Core/Src/ultrasonic.c:195:18:GetState	1
+../Core/Src/ultrasonic.c:203:6:Ultrasonic_HasNewSample	3
+../Core/Src/ultrasonic.c:213:6:Ultrasonic_TakeSample	3
+../Core/Src/ultrasonic.c:261:6:TIM2_IRQHandler	4

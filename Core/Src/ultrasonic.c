@@ -138,46 +138,54 @@ void Ultrasonic_Service(uint32_t now_us)
 	// Determine time since echo pulse start
 	uint64_t echo_time_elapsed = CalculateTimeElapsed(now_us, measurement_start_us);
 
-	// End trigger pulse
-	if(trigger_time_elapsed > ULTRASONIC_TRIGGER_US && current_state == ULTRASONIC_TRIGGER_STATE)
+	// Use current state to determine logic
+	switch(current_state)
 	{
-		// Set TRIG low
-		GPIOB->BSRR |= (GPIO_BSRR_BR5);
+		// End Trigger Pulse
+		case ULTRASONIC_TRIGGER_STATE:
+			if(trigger_time_elapsed > ULTRASONIC_TRIGGER_US)
+			{
+				// Set TRIG low
+				GPIOB->BSRR |= (GPIO_BSRR_BR5);
 
-		// Configure for rising edge
-		TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
+				// Configure for rising edge
+				TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
 
-		// Save echo start time
-		measurement_start_us = now_us;
+				// Save echo start time
+				measurement_start_us = now_us;
 
-		// Update current state
-		current_state = ULTRASONIC_BURST_STATE;
-	}
+				// Update current state
+				current_state = ULTRASONIC_BURST_STATE;
+			}
+			break;
+		// Successful Capture
+		case ULTRASONIC_COMPLETE_STATE:
+			// Update pulse width
+			pulse_width = t_fall - t_rise;
 
-	// Successful Capture
-	if(current_state == ULTRASONIC_COMPLETE_STATE)
-	{
-		// Update pulse width
-		pulse_width = t_fall - t_rise;
+			// Calculate distance
+			distance = ((double) SPEED_OF_SOUND * (double) (CalculateTimeElapsed(t_fall, t_rise))) / 2.0;
 
-		// Calculate distance
-		distance = ((double) SPEED_OF_SOUND * (double) (CalculateTimeElapsed(t_fall, t_rise))) / 2.0;
+			// Mark result as OK
+			result = ULTRASONIC_OK;
+			break;
+		// Timeout
+		case ULTRASONIC_ECHO_STATE:
+			if(echo_time_elapsed > ULTRASONIC_TIMEOUT_US)
+			{
+				// Mark result as timeout
+				result = ULTRASONIC_TIMEOUT;
 
-		// Mark result as OK
-		result = ULTRASONIC_OK;
-	}
+				// Configure for rising edge
+				TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
 
-	// Timeout
-	if(current_state == ULTRASONIC_ECHO_STATE && echo_time_elapsed > ULTRASONIC_TIMEOUT_US)
-	{
-		// Mark result as timeout
-		result = ULTRASONIC_TIMEOUT;
-
-		// Configure for rising edge
-		TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
-
-		// Update current state
-		current_state = ULTRASONIC_TIMEOUT_STATE;
+				// Update current state
+				current_state = ULTRASONIC_TIMEOUT_STATE;
+			}
+			break;
+		default:
+			// Other states have no work to do
+			break;
 	}
 }
 
@@ -186,7 +194,7 @@ void Ultrasonic_Service(uint32_t now_us)
 //******************************************************************************************
 Ultrasonic_State GetState()
 {
-	return current_state; // TODO - ensure this is actually needed and can't be inferred
+	return current_state;
 }
 
 //******************************************************************************************
