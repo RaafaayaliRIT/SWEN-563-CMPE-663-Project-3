@@ -1,0 +1,5 @@
+../Core/Src/LED.c:72:6:LED_On	0	static
+../Core/Src/LED.c:80:6:LED_Off	0	static
+../Core/Src/LED.c:40:6:LED_Init	0	static
+../Core/Src/LED.c:88:6:LED_Toggle	0	static
+../Core/Src/LED.c:96:6:LED_IsOn	0	static

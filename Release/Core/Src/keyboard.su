@@ -1,0 +1,9 @@
+../Core/Src/keyboard.c:126:13:Keyboard_RxErrorCallback	8	static
+../Core/Src/keyboard.c:353:13:Keyboard_ApplyRxFault.part.0	0	static
+../Core/Src/keyboard.c:86:13:Keyboard_RxCallback	16	static,ignoring_inline_asm
+../Core/Src/keyboard.c:147:6:Keyboard_Init	8	static
+../Core/Src/keyboard.c:179:6:Keyboard_DiscardPending	8	static,ignoring_inline_asm
+../Core/Src/keyboard.c:216:13:Keyboard_Publish	8	static
+../Core/Src/keyboard.c:416:6:Keyboard_Service	32	static,ignoring_inline_asm
+../Core/Src/keyboard.c:466:6:Keyboard_TakeEvent	16	static,ignoring_inline_asm
+../Core/Src/keyboard.c:512:13:Keyboard_CommandName	0	static

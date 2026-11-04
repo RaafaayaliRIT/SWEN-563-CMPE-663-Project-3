@@ -1,5 +1,8 @@
-../Core/Src/ultrasonic.c:22:6:Ultrasonic_Init	4	static
-../Core/Src/ultrasonic.c:32:6:Ultrasonic_Start	16	static
-../Core/Src/ultrasonic.c:44:6:Ultrasonic_Service	16	static
-../Core/Src/ultrasonic.c:55:6:Ultrasonic_TakeSample	16	static
-../Core/Src/ultrasonic.c:67:6:TIM2_IRQHandler	4	static
+../Core/Inc/core_cm4.h:1679:22:__NVIC_EnableIRQ	16	static,ignoring_inline_asm
+../Core/Inc/core_cm4.h:1770:22:__NVIC_ClearPendingIRQ	16	static
+../Core/Inc/core_cm4.h:1809:22:__NVIC_SetPriority	16	static
+../Core/Src/ultrasonic.c:22:6:Ultrasonic_Init	8	static
+../Core/Src/ultrasonic.c:92:6:Ultrasonic_Start	16	static
+../Core/Src/ultrasonic.c:104:6:Ultrasonic_Service	16	static
+../Core/Src/ultrasonic.c:115:6:Ultrasonic_TakeSample	16	static
+../Core/Src/ultrasonic.c:127:6:TIM2_IRQHandler	4	static

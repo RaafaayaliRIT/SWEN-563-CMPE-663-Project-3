@@ -1,0 +1,10 @@
+../Core/Src/uart.c:58:6:USART_Init	0	static
+../Core/Src/uart.c:131:6:USART_Write	0	static
+../Core/Src/uart.c:142:6:USART_Write_String	8	static
+../Core/Src/uart.c:158:6:USART_Read	0	static
+../Core/Src/uart.c:170:6:USART_Read_NB	0	static
+../Core/Src/uart.c:200:6:USART_TryWrite	12	static,ignoring_inline_asm
+../Core/Src/uart.c:243:6:USART2_RegisterRxCallback	0	static
+../Core/Src/uart.c:252:6:USART2_RegisterRxErrorCallback	0	static
+../Core/Src/uart.c:260:6:USART2_EnableIRQ	0	static,ignoring_inline_asm
+../Core/Src/uart.c:277:6:USART2_IRQHandler	8	static

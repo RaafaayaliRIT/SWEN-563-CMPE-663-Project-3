@@ -12,6 +12,7 @@
 
 #define ULTRASONIC_INTERVAL_US   80000U
 #define ULTRASONIC_TIMEOUT_US    30000U
+#define TIM2_INTERRUPT_PRIORITY  (1U)
 
 // These are measurement results, not the sensor's internal states
 // Choose your own internal states as you design the measurement sequence

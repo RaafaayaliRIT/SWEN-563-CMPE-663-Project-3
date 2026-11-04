@@ -60,8 +60,8 @@ all: main-build
 main-build: Project3.elf secondary-outputs
 
 # Tool invocations
-Project3.elf Project3.map: $(OBJS) $(USER_OBJS) C:\Users\Dillon\Documents\RIT\CMPE\ 663\ -\ Real\ Time\ and\ Embedded\ Systems\Projects\Project\ 3\Project3\SWEN-563-CMPE-663-Project-3\STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Project3.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Dillon\Documents\RIT\CMPE 663 - Real Time and Embedded Systems\Projects\Project 3\Project3\SWEN-563-CMPE-663-Project-3\STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Project3.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Project3.elf Project3.map: $(OBJS) $(USER_OBJS) S:\Documents\CodeProjects\Project3\SWEN-563-CMPE-663-Project-3\STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Project3.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"S:\Documents\CodeProjects\Project3\SWEN-563-CMPE-663-Project-3\STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Project3.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

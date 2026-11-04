@@ -14,7 +14,7 @@
 // The phases suggest a development order and there is one final demo
 // Use 5 for your finished solution
 #ifndef PROJECT_PHASE
-#define PROJECT_PHASE                 1U
+#define PROJECT_PHASE                 2U
 #endif
 
 #if PROJECT_PHASE < 1 || PROJECT_PHASE > 5

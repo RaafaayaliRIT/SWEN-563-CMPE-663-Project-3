@@ -1,0 +1,4 @@
+../Core/Src/phase_tests.c:37:13:Sweep_Request	4
+../Core/Src/phase_tests.c:76:6:PhaseTests_Init	1
+../Core/Src/phase_tests.c:98:6:PhaseTests_Service	7
+../Core/Src/phase_tests.c:150:6:PhaseTests_GetSnapshot	2
