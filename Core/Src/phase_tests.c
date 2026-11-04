@@ -10,7 +10,7 @@
 #include "timer.h"
 #include "timebase.h"
 #include "LED.h"
-#include "stm32l476xx.h" // TODO - remove
+#include "custom_functions.h"
 
 // Add the test data you need for your sweep and sensor checks
 // You can use these exercises or test directly in your car application
@@ -33,29 +33,6 @@ static bool s_servo_ok = true; // false = error state;
 static int64_t last_sample_us = -1;
 Ultrasonic_Sample sample;
 
-
-
-
-
-uint64_t CalculateTimeElapsed2(uint32_t now_us, uint32_t previous_us)
-{
-	// Create variable to hold final time elapsed
-	uint64_t time_elapsed;
-
-	// If there was not counter reset
-	if(now_us >= previous_us)
-	{
-		time_elapsed = now_us - previous_us;
-	}
-	// If there was a counter reset
-	else
-	{
-		time_elapsed = (now_us + TIM_CNT_CNT) - previous_us;
-	}
-
-	// Return final time elapsed
-	return time_elapsed;
-}
 
 
 
@@ -200,7 +177,7 @@ void PhaseTests_Service(uint32_t now_ms)
 
 
 	// If sample interval has elapsed and sensor is idle
-	if(CalculateTimeElapsed2(now_us, last_sample_us) > ULTRASONIC_INTERVAL_US && getState() == ULTRASONIC_IDLE_STATE)
+	if(CalculateTimeElapsed(now_us, last_sample_us) > ULTRASONIC_INTERVAL_US && GetState() == ULTRASONIC_IDLE_STATE)
 	{
 		Ultrasonic_Start(now_us);
 	}
@@ -210,8 +187,8 @@ void PhaseTests_Service(uint32_t now_ms)
 		Ultrasonic_Sample sample;
 		Ultrasonic_TakeSample(&sample);
 		s_view.sensor_result = sample.result;
+		s_view.sensor_distance_mm = sample.distance_mm;
 	}
-
 
 
 

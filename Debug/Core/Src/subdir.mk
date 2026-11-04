@@ -7,6 +7,7 @@
 C_SRCS += \
 ../Core/Src/LED.c \
 ../Core/Src/SysClock.c \
+../Core/Src/custom_functions.c \
 ../Core/Src/gpio.c \
 ../Core/Src/keyboard.c \
 ../Core/Src/main.c \
@@ -27,6 +28,7 @@ C_SRCS += \
 OBJS += \
 ./Core/Src/LED.o \
 ./Core/Src/SysClock.o \
+./Core/Src/custom_functions.o \
 ./Core/Src/gpio.o \
 ./Core/Src/keyboard.o \
 ./Core/Src/main.o \
@@ -47,6 +49,7 @@ OBJS += \
 C_DEPS += \
 ./Core/Src/LED.d \
 ./Core/Src/SysClock.d \
+./Core/Src/custom_functions.d \
 ./Core/Src/gpio.d \
 ./Core/Src/keyboard.d \
 ./Core/Src/main.d \
@@ -72,7 +75,7 @@ Core/Src/%.o Core/Src/%.su Core/Src/%.cyclo: ../Core/Src/%.c Core/Src/subdir.mk
 clean: clean-Core-2f-Src
 
 clean-Core-2f-Src:
-	-$(RM) ./Core/Src/LED.cyclo ./Core/Src/LED.d ./Core/Src/LED.o ./Core/Src/LED.su ./Core/Src/SysClock.cyclo ./Core/Src/SysClock.d ./Core/Src/SysClock.o ./Core/Src/SysClock.su ./Core/Src/gpio.cyclo ./Core/Src/gpio.d ./Core/Src/gpio.o ./Core/Src/gpio.su ./Core/Src/keyboard.cyclo ./Core/Src/keyboard.d ./Core/Src/keyboard.o ./Core/Src/keyboard.su ./Core/Src/main.cyclo ./Core/Src/main.d ./Core/Src/main.o ./Core/Src/main.su ./Core/Src/phase_tests.cyclo ./Core/Src/phase_tests.d ./Core/Src/phase_tests.o ./Core/Src/phase_tests.su ./Core/Src/race.cyclo ./Core/Src/race.d ./Core/Src/race.o ./Core/Src/race.su ./Core/Src/race_display.cyclo ./Core/Src/race_display.d ./Core/Src/race_display.o ./Core/Src/race_display.su ./Core/Src/servo.cyclo ./Core/Src/servo.d ./Core/Src/servo.o ./Core/Src/servo.su ./Core/Src/stm32l4xx_hal_gpio.cyclo ./Core/Src/stm32l4xx_hal_gpio.d ./Core/Src/stm32l4xx_hal_gpio.o ./Core/Src/stm32l4xx_hal_gpio.su ./Core/Src/stm32l4xx_it.cyclo ./Core/Src/stm32l4xx_it.d ./Core/Src/stm32l4xx_it.o ./Core/Src/stm32l4xx_it.su ./Core/Src/syscalls.cyclo ./Core/Src/syscalls.d ./Core/Src/syscalls.o ./Core/Src/syscalls.su ./Core/Src/sysmem.cyclo ./Core/Src/sysmem.d ./Core/Src/sysmem.o ./Core/Src/sysmem.su ./Core/Src/system_stm32l4xx.cyclo ./Core/Src/system_stm32l4xx.d ./Core/Src/system_stm32l4xx.o ./Core/Src/system_stm32l4xx.su ./Core/Src/timebase.cyclo ./Core/Src/timebase.d ./Core/Src/timebase.o ./Core/Src/timebase.su ./Core/Src/timer.cyclo ./Core/Src/timer.d ./Core/Src/timer.o ./Core/Src/timer.su ./Core/Src/uart.cyclo ./Core/Src/uart.d ./Core/Src/uart.o ./Core/Src/uart.su ./Core/Src/ultrasonic.cyclo ./Core/Src/ultrasonic.d ./Core/Src/ultrasonic.o ./Core/Src/ultrasonic.su
+	-$(RM) ./Core/Src/LED.cyclo ./Core/Src/LED.d ./Core/Src/LED.o ./Core/Src/LED.su ./Core/Src/SysClock.cyclo ./Core/Src/SysClock.d ./Core/Src/SysClock.o ./Core/Src/SysClock.su ./Core/Src/custom_functions.cyclo ./Core/Src/custom_functions.d ./Core/Src/custom_functions.o ./Core/Src/custom_functions.su ./Core/Src/gpio.cyclo ./Core/Src/gpio.d ./Core/Src/gpio.o ./Core/Src/gpio.su ./Core/Src/keyboard.cyclo ./Core/Src/keyboard.d ./Core/Src/keyboard.o ./Core/Src/keyboard.su ./Core/Src/main.cyclo ./Core/Src/main.d ./Core/Src/main.o ./Core/Src/main.su ./Core/Src/phase_tests.cyclo ./Core/Src/phase_tests.d ./Core/Src/phase_tests.o ./Core/Src/phase_tests.su ./Core/Src/race.cyclo ./Core/Src/race.d ./Core/Src/race.o ./Core/Src/race.su ./Core/Src/race_display.cyclo ./Core/Src/race_display.d ./Core/Src/race_display.o ./Core/Src/race_display.su ./Core/Src/servo.cyclo ./Core/Src/servo.d ./Core/Src/servo.o ./Core/Src/servo.su ./Core/Src/stm32l4xx_hal_gpio.cyclo ./Core/Src/stm32l4xx_hal_gpio.d ./Core/Src/stm32l4xx_hal_gpio.o ./Core/Src/stm32l4xx_hal_gpio.su ./Core/Src/stm32l4xx_it.cyclo ./Core/Src/stm32l4xx_it.d ./Core/Src/stm32l4xx_it.o ./Core/Src/stm32l4xx_it.su ./Core/Src/syscalls.cyclo ./Core/Src/syscalls.d ./Core/Src/syscalls.o ./Core/Src/syscalls.su ./Core/Src/sysmem.cyclo ./Core/Src/sysmem.d ./Core/Src/sysmem.o ./Core/Src/sysmem.su ./Core/Src/system_stm32l4xx.cyclo ./Core/Src/system_stm32l4xx.d ./Core/Src/system_stm32l4xx.o ./Core/Src/system_stm32l4xx.su ./Core/Src/timebase.cyclo ./Core/Src/timebase.d ./Core/Src/timebase.o ./Core/Src/timebase.su ./Core/Src/timer.cyclo ./Core/Src/timer.d ./Core/Src/timer.o ./Core/Src/timer.su ./Core/Src/uart.cyclo ./Core/Src/uart.d ./Core/Src/uart.o ./Core/Src/uart.su ./Core/Src/ultrasonic.cyclo ./Core/Src/ultrasonic.d ./Core/Src/ultrasonic.o ./Core/Src/ultrasonic.su
 
 .PHONY: clean-Core-2f-Src
 

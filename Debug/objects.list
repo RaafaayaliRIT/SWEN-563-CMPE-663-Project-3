@@ -1,5 +1,6 @@
 "./Core/Src/LED.o"
 "./Core/Src/SysClock.o"
+"./Core/Src/custom_functions.o"
 "./Core/Src/gpio.o"
 "./Core/Src/keyboard.o"
 "./Core/Src/main.o"
