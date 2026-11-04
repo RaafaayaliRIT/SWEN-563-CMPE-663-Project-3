@@ -1,8 +1,12 @@
 ../Core/Inc/core_cm4.h:1679:22:__NVIC_EnableIRQ	2
 ../Core/Inc/core_cm4.h:1770:22:__NVIC_ClearPendingIRQ	2
 ../Core/Inc/core_cm4.h:1809:22:__NVIC_SetPriority	2
-../Core/Src/ultrasonic.c:22:6:Ultrasonic_Init	1
-../Core/Src/ultrasonic.c:92:6:Ultrasonic_Start	1
-../Core/Src/ultrasonic.c:104:6:Ultrasonic_Service	1
-../Core/Src/ultrasonic.c:115:6:Ultrasonic_TakeSample	1
-../Core/Src/ultrasonic.c:127:6:TIM2_IRQHandler	1
+../Core/Src/ultrasonic.c:27:18:getState	1
+../Core/Src/ultrasonic.c:33:6:Ultrasonic_HasNewSample	3
+../Core/Src/ultrasonic.c:39:10:CalculateTimeElapsed	2
+../Core/Src/ultrasonic.c:59:10:Ultrasonic_GetDistance	1
+../Core/Src/ultrasonic.c:71:6:Ultrasonic_Init	1
+../Core/Src/ultrasonic.c:141:6:Ultrasonic_Start	2
+../Core/Src/ultrasonic.c:172:6:Ultrasonic_Service	6
+../Core/Src/ultrasonic.c:242:6:Ultrasonic_TakeSample	2
+../Core/Src/ultrasonic.c:273:6:TIM2_IRQHandler	4

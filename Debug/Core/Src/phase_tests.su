@@ -1,4 +1,5 @@
-../Core/Src/phase_tests.c:37:13:Sweep_Request	16	static
-../Core/Src/phase_tests.c:76:6:PhaseTests_Init	56	static
-../Core/Src/phase_tests.c:98:6:PhaseTests_Service	32	static
-../Core/Src/phase_tests.c:150:6:PhaseTests_GetSnapshot	24	static
+../Core/Src/phase_tests.c:40:10:CalculateTimeElapsed2	32	static
+../Core/Src/phase_tests.c:65:13:Sweep_Request	16	static
+../Core/Src/phase_tests.c:104:6:PhaseTests_Init	56	static
+../Core/Src/phase_tests.c:126:6:PhaseTests_Service	64	static
+../Core/Src/phase_tests.c:230:6:PhaseTests_GetSnapshot	24	static

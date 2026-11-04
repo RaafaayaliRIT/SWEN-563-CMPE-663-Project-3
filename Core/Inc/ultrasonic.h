@@ -12,10 +12,22 @@
 
 #define ULTRASONIC_INTERVAL_US   80000U
 #define ULTRASONIC_TIMEOUT_US    30000U
+#define ULTRASONIC_TRIGGER_US	 10U
 #define TIM2_INTERRUPT_PRIORITY  (1U)
 
 // These are measurement results, not the sensor's internal states
 // Choose your own internal states as you design the measurement sequence
+
+
+typedef enum {
+	ULTRASONIC_IDLE_STATE,			// Before TRIG pulse
+	ULTRASONIC_TRIGGER_STATE, 		// During TRIG pulse
+	ULTRASONIC_BURST_STATE,			// Sensor is sending sonic burst
+	ULTRASONIC_ECHO_STATE,			// Sensor is waiting for echo
+	ULTRASONIC_COMPLETE_STATE,		// Sensor has received echo
+	ULTRASONIC_TIMEOUT_STATE		// Sensor never recieved echo
+} Ultrasonic_State;
+
 typedef enum {
 	ULTRASONIC_OK,
 	ULTRASONIC_TIMEOUT,
@@ -30,6 +42,9 @@ typedef struct {
 	uint32_t distance_mm;
 	Ultrasonic_Result result;
 } Ultrasonic_Sample;
+
+Ultrasonic_State getState(void);
+bool Ultrasonic_HasNewSample(void);
 
 // Call after timer_init and keep its free-running TIM2 timebase intact
 void Ultrasonic_Init(void);
