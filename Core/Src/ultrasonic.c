@@ -15,21 +15,35 @@
 // Add the measurement state and shared data you need
 // Decide which values are written by the ISR and read by the foreground
 
+
+// Distance conversion: 343 m/s = 0.343 mm/us, and the echo is a round trip,
+// so distance_mm = echo_us * 0.343 / 2 = echo_us * 343 / 2000.
+#define SOUND_MM_PER_US_NUM 343
+#define SOUND_MM_PER_US_DEN 2000
+
+
 // State information
-static Ultrasonic_State current_state = ULTRASONIC_IDLE_STATE;
+static volatile Ultrasonic_State current_state = ULTRASONIC_IDLE_STATE; // since this gets changed in the IRQ we need to set it to volatile
 static Ultrasonic_Result result = ULTRASONIC_NOT_READY;
 
 // Timestamp variables
 static uint32_t trigger_start_us;
 static uint32_t measurement_start_us;
-static uint32_t t_rise;
-static uint32_t t_fall;
-static uint64_t trigger_time_elapsed;
-static uint64_t echo_time_elapsed;
+
+// if the IRQ alters a variable it needs to be volatile
+static volatile uint32_t t_rise;
+static volatile uint32_t t_fall;
+
+static uint32_t trigger_time_elapsed;
+static uint32_t echo_time_elapsed;
 
 // Distance variables
 static uint32_t pulse_width;
 static uint32_t distance;
+
+
+static uint32_t sequence_count = 0;
+static uint32_t sample_time_us;
 
 //******************************************************************************************
 // Set up PB5 for Trigger and PB10 for Echo capture
@@ -43,6 +57,10 @@ void Ultrasonic_Init(void)
 	// Enable GPIOB register access (1)
 	RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
 
+
+	(void) RCC->AHB2ENR; // dummy read-back: make sure the GPIOB clock is on before configuring it
+
+
 	// General purpose output mode (01)
 	GPIOB->MODER &= ~(GPIO_MODER_MODE5);
 	GPIOB->MODER |= GPIO_MODER_MODE5_0;
@@ -54,6 +72,8 @@ void Ultrasonic_Init(void)
 	GPIOB->PUPDR &= ~(GPIO_PUPDR_PUPD5);
 
 	// Start output pin as 0 (BR5=1)
+	// I don't think we can read this value, (it's always 0) but we can set it
+	// GPIOB->BSRR = (GPIO_BSRR_BR5);
 	GPIOB->BSRR |= (GPIO_BSRR_BR5); // Note that you set the BR5 bit to reset OD5.
 
 	// --- ECHO GPIO PATH ---
@@ -71,6 +91,9 @@ void Ultrasonic_Init(void)
 	// OTYPER/OSPEEDR unnecessary since it is not driving the output.
 
 	// --- TIM2_CH3 Input Capture ---
+	// Disable capture/compare (0)
+	TIM2->CCER &= ~(TIM_CCER_CC3E);
+
 	// Channel 3 as input->TI3 (01)
 	TIM2->CCMR2 &= ~(TIM_CCMR2_CC3S);
 	TIM2->CCMR2 |= TIM_CCMR2_CC3S_0;
@@ -81,18 +104,19 @@ void Ultrasonic_Init(void)
 	// No digital filter (0000)
 	TIM2->CCMR2 &= ~(TIM_CCMR2_IC3F);
 
-	// Disable capture/compare (0)
-	TIM2->CCER &= ~(TIM_CCER_CC3E);
 
-	// Rising edge sensitive
+	// Rising edge sensitive (CC3P = 0, CC3NP = 0)
 	TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
+
+
+	// Clear stale flag
+	TIM2->SR = ~(TIM_SR_CC3IF | TIM_SR_CC3OF)	;
+	//TIM2->SR &= ~(TIM_SR_CC3IF); // Also cleared by reading CCR3
 
 	// Enable interrupt for CH3 capture
 	TIM2->DIER |= TIM_DIER_CC3IE;
 
-	// Clear stale flag
-	TIM2->SR = 0; // Clear all flags in the status register before enabling interrupts
-//	TIM2->SR &= ~(TIM_SR_CC3IF); // Also cleared by reading CCR3
+
 
 	// NVIC for TIM2_IRQ (Unsure about this code. Taken from project 2 implementation)
 	NVIC_ClearPendingIRQ(TIM2_IRQn);
@@ -101,6 +125,10 @@ void Ultrasonic_Init(void)
 
 	// Enable capture/compare (1)
 	TIM2->CCER |= TIM_CCER_CC3E;
+
+	// Initialize software state to IDLE (guide's last init step)
+	current_state = ULTRASONIC_IDLE_STATE;
+	result = ULTRASONIC_NOT_READY;
 }
 
 //******************************************************************************************
@@ -117,7 +145,8 @@ bool Ultrasonic_Start(uint32_t now_us)
 	}
 
 	// Set the trigger output pin high
-	GPIOB->BSRR |= (GPIO_BSRR_BS5);
+	//GPIOB->BSRR |= (GPIO_BSRR_BS5);
+	GPIOB->BSRR = (GPIO_BSRR_BS5); // I'm confused on where you found this information?
 
 	// Record trigger pulse start time
 	trigger_start_us = now_us;
@@ -137,63 +166,53 @@ bool Ultrasonic_Start(uint32_t now_us)
 void Ultrasonic_Service(uint32_t now_us)
 {
 	// Determine time since trigger pulse start
-	trigger_time_elapsed = CalculateTimeElapsed(now_us, trigger_start_us);
+	trigger_time_elapsed = timer_elapsed_us(trigger_start_us, now_us);
 
-	// Determine time since echo pulse start
-	echo_time_elapsed = CalculateTimeElapsed(now_us, measurement_start_us);
 
-	// Use current state to determine logic
-	switch(current_state)
-	{
-		// End Trigger Pulse + Timeout
-		case ULTRASONIC_TRIGGER_STATE:
-			if(trigger_time_elapsed > ULTRASONIC_TRIGGER_US)
-			{
-				// Set TRIG low
-				GPIOB->BSRR |= (GPIO_BSRR_BR5);
+	// If state is TRIGGER_HIGH and at least 10 us elapsed
+	if(current_state == ULTRASONIC_TRIGGER_STATE && trigger_time_elapsed > ULTRASONIC_TRIGGER_US){
 
-				// Configure for rising edge
-				TIM2->CCER &= ~(TIM_CCER_CC3E);
-				TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
-				TIM2->CCER |= TIM_CCER_CC3E;
+		//confirm rising-edge capture
+		TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
 
-				// Save echo start time
-				measurement_start_us = now_us;
+		// Save measurement_start_us (the timeout is measured from here)
+		measurement_start_us = now_us;
 
-				// Update current state
-				current_state = ULTRASONIC_BURST_STATE;
-			}
-			break;
-		// Successful Capture
-		case ULTRASONIC_COMPLETE_STATE:
-			// Update pulse width
-			pulse_width = t_fall - t_rise;
+		// set the state
+		current_state = ULTRASONIC_BURST_STATE;
 
-			// Calculate distance
-			distance = ((double) SPEED_OF_SOUND * (double) (CalculateTimeElapsed(t_fall, t_rise))) / 2.0;
+		//set trig to low, (we want to set this after we set the internal state of the sensor)
+		GPIOB->BSRR = GPIO_BSRR_BR5;
+	}
 
-			// Mark result as OK
-			result = ULTRASONIC_OK;
-			break;
-		// Timeout
-		case ULTRASONIC_ECHO_STATE:
-		case ULTRASONIC_BURST_STATE:
-			if(echo_time_elapsed > ULTRASONIC_TIMEOUT_US)
-			{
-				// Mark result as timeout
-				result = ULTRASONIC_TIMEOUT;
 
-				// Configure for rising edge
-				TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
+	// If state is WAIT_ECHO and Echo completed
+	if(current_state == ULTRASONIC_COMPLETE_STATE && result != ULTRASONIC_OK){
+		// Publish the new sample
+		pulse_width = t_fall - t_rise;
+		distance = (pulse_width * SOUND_MM_PER_US_NUM) / SOUND_MM_PER_US_DEN;
+		sample_time_us = t_fall;    // when the echo actually ended
+		sequence_count++; // one number per published sample
+		result = ULTRASONIC_OK;
+	}
 
-				// Update current state
-				current_state = ULTRASONIC_TIMEOUT_STATE;
-			}
-			break;
+	// Must come after the trigger block: that block resets measurement_start_us for a new measurement, and computing this earlier would use the old start time.
+	echo_time_elapsed = timer_elapsed_us(measurement_start_us, now_us);
 
-		default:
-			// Other states have no work to do
-			break;
+	//If state is WAIT_ECHO and timeout elapsed
+	// we are checking both the burst state and the echo state since both of these states can enter a timeout
+	// BURST: waiting for the rising edge
+	// ECHO: waiting for falling edge (30ms timeout)
+	if((current_state == ULTRASONIC_BURST_STATE || current_state == ULTRASONIC_ECHO_STATE) && echo_time_elapsed > ULTRASONIC_TIMEOUT_US){
+
+		// mark timeout
+		result = ULTRASONIC_TIMEOUT;
+
+		// Restore capture for the next request
+		TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
+
+		// Set state = TIMEOUT (TakeSample recovers it to IDLE)
+		current_state = ULTRASONIC_TIMEOUT_STATE;
 	}
 }
 
@@ -241,40 +260,50 @@ bool Ultrasonic_TakeSample(Ultrasonic_Sample *sample)
 		sample->result = result;
 
 		// Give timestamp
-		sample->timestamp_us = timer_get_us();
+		sample->timestamp_us = sample_time_us;
 
-		// Give "sequence"? TODO - what is sequence?
-		sample->sequence;
+		// Give sequence
+		sample->sequence = sequence_count;
+
+
+		//mark the sample as consumed
+		result = ULTRASONIC_NOT_READY;
+		current_state = ULTRASONIC_IDLE_STATE;
 
 		// Return true to show the sample was ready
 		return true;
 	}
-	// If a sample is not ready
-	else
-	{
-		// Only give timestamp and result info
-		sample->timestamp_us = timer_get_us();
-		sample->result = result;
 
-		// Return false to show sample was not ready
+	// timeout needs to go back to idle state
+	if(current_state == ULTRASONIC_TIMEOUT_STATE){
+
+		sample->result = ULTRASONIC_TIMEOUT;
+		result = ULTRASONIC_NOT_READY;
+		current_state = ULTRASONIC_IDLE_STATE;
 		return false;
 	}
+
+	return false;
 }
 
 void Ultrasonic_Reset(uint32_t now_us)
 {
+	//// Return the hardware to its idle setup, in case Reset is called mid-measurement
+	GPIOB->BSRR = GPIO_BSRR_BR5; // TRIG low (could be stuck at high if reset during TRIGGER)
+	TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP); // rising edge, could be left at failing edge during ECHO
+
 	current_state = ULTRASONIC_IDLE_STATE;
 	result = ULTRASONIC_NOT_READY;
 
 	// Timestamp variables
 	trigger_start_us = now_us;
 	measurement_start_us = now_us;
-	t_rise = RESET_VALUE;
-	t_fall = RESET_VALUE;
+	t_rise = 0;
+	t_fall = 0;
 
 	// Distance variables
-	pulse_width = RESET_VALUE;
-	distance = RESET_VALUE;
+	pulse_width = 0;
+	distance = 0;
 }
 
 //******************************************************************************************
@@ -294,11 +323,8 @@ void TIM2_IRQHandler(void)
 			t_rise = TIM2->CCR3;
 
 			// Configure for falling edge
-			TIM2->CCER &= ~(TIM_CCER_CC3E);						// Disable capture compare
-			TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP); 	// Clear (P=0, NP=0)
-			TIM2->CCER |= TIM_CCER_CC3P; 						// Set (P=1, NP=0)
-			TIM2->CCER |= TIM_CCER_CC3E; 						// Enable capture/compare (1)
-
+			TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP); 	// Clear (00)
+			TIM2->CCER |= TIM_CCER_CC3P; 						// Set (01)
 
 			// Update current state
 			current_state = ULTRASONIC_ECHO_STATE;
