@@ -91,7 +91,8 @@ void Ultrasonic_Init(void)
 	TIM2->DIER |= TIM_DIER_CC3IE;
 
 	// Clear stale flag
-	TIM2->SR &= ~(TIM_SR_CC3IF); // Also cleared by reading CCR3
+	TIM2->SR = 0; // Clear all flags in the status register before enabling interrupts
+//	TIM2->SR &= ~(TIM_SR_CC3IF); // Also cleared by reading CCR3
 
 	// NVIC for TIM2_IRQ (Unsure about this code. Taken from project 2 implementation)
 	NVIC_ClearPendingIRQ(TIM2_IRQn);
@@ -152,7 +153,9 @@ void Ultrasonic_Service(uint32_t now_us)
 				GPIOB->BSRR |= (GPIO_BSRR_BR5);
 
 				// Configure for rising edge
+				TIM2->CCER &= ~(TIM_CCER_CC3E);
 				TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
+				TIM2->CCER |= TIM_CCER_CC3E;
 
 				// Save echo start time
 				measurement_start_us = now_us;
@@ -173,20 +176,20 @@ void Ultrasonic_Service(uint32_t now_us)
 			result = ULTRASONIC_OK;
 			break;
 		// Timeout
-//		case ULTRASONIC_ECHO_STATE:
-//		case ULTRASONIC_BURST_STATE:
-//			if(echo_time_elapsed > ULTRASONIC_TIMEOUT_US)
-//			{
-//				// Mark result as timeout
-//				result = ULTRASONIC_TIMEOUT;
-//
-//				// Configure for rising edge
-//				TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
-//
-//				// Update current state
-//				current_state = ULTRASONIC_TIMEOUT_STATE;
-//			}
-//			break;
+		case ULTRASONIC_ECHO_STATE:
+		case ULTRASONIC_BURST_STATE:
+			if(echo_time_elapsed > ULTRASONIC_TIMEOUT_US)
+			{
+				// Mark result as timeout
+				result = ULTRASONIC_TIMEOUT;
+
+				// Configure for rising edge
+				TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
+
+				// Update current state
+				current_state = ULTRASONIC_TIMEOUT_STATE;
+			}
+			break;
 
 		default:
 			// Other states have no work to do
@@ -291,8 +294,11 @@ void TIM2_IRQHandler(void)
 			t_rise = TIM2->CCR3;
 
 			// Configure for falling edge
-			TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP); 	// Clear (00)
-			TIM2->CCER |= TIM_CCER_CC3P; 						// Set (01)
+			TIM2->CCER &= ~(TIM_CCER_CC3E);						// Disable capture compare
+			TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP); 	// Clear (P=0, NP=0)
+			TIM2->CCER |= TIM_CCER_CC3P; 						// Set (P=1, NP=0)
+			TIM2->CCER |= TIM_CCER_CC3E; 						// Enable capture/compare (1)
+
 
 			// Update current state
 			current_state = ULTRASONIC_ECHO_STATE;
