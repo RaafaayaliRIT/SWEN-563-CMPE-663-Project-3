@@ -206,7 +206,7 @@ void PhaseTests_Service(uint32_t now_ms)
 		s_view.sensor_result = sample.result;
 		// TODO - Show "SENSOR TIMEOUT"
 		LED_On();
-		Ultrasonic_Reset();
+		Ultrasonic_Reset(now_us);
 		last_sample_us = now_us;
 
 

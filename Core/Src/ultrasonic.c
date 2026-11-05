@@ -24,6 +24,8 @@ static uint32_t trigger_start_us;
 static uint32_t measurement_start_us;
 static uint32_t t_rise;
 static uint32_t t_fall;
+static uint64_t trigger_time_elapsed;
+static uint64_t echo_time_elapsed;
 
 // Distance variables
 static uint32_t pulse_width;
@@ -134,15 +136,15 @@ bool Ultrasonic_Start(uint32_t now_us)
 void Ultrasonic_Service(uint32_t now_us)
 {
 	// Determine time since trigger pulse start
-	uint64_t trigger_time_elapsed = CalculateTimeElapsed(now_us, trigger_start_us);
+	trigger_time_elapsed = CalculateTimeElapsed(now_us, trigger_start_us);
 
 	// Determine time since echo pulse start
-	uint64_t echo_time_elapsed = CalculateTimeElapsed(now_us, measurement_start_us);
+	echo_time_elapsed = CalculateTimeElapsed(now_us, measurement_start_us);
 
 	// Use current state to determine logic
 	switch(current_state)
 	{
-		// End Trigger Pulse
+		// End Trigger Pulse + Timeout
 		case ULTRASONIC_TRIGGER_STATE:
 			if(trigger_time_elapsed > ULTRASONIC_TRIGGER_US)
 			{
@@ -171,19 +173,21 @@ void Ultrasonic_Service(uint32_t now_us)
 			result = ULTRASONIC_OK;
 			break;
 		// Timeout
-		case ULTRASONIC_ECHO_STATE:
-			if(echo_time_elapsed > ULTRASONIC_TIMEOUT_US)
-			{
-				// Mark result as timeout
-				result = ULTRASONIC_TIMEOUT;
+//		case ULTRASONIC_ECHO_STATE:
+//		case ULTRASONIC_BURST_STATE:
+//			if(echo_time_elapsed > ULTRASONIC_TIMEOUT_US)
+//			{
+//				// Mark result as timeout
+//				result = ULTRASONIC_TIMEOUT;
+//
+//				// Configure for rising edge
+//				TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
+//
+//				// Update current state
+//				current_state = ULTRASONIC_TIMEOUT_STATE;
+//			}
+//			break;
 
-				// Configure for rising edge
-				TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
-
-				// Update current state
-				current_state = ULTRASONIC_TIMEOUT_STATE;
-			}
-			break;
 		default:
 			// Other states have no work to do
 			break;
@@ -254,14 +258,14 @@ bool Ultrasonic_TakeSample(Ultrasonic_Sample *sample)
 	}
 }
 
-void Ultrasonic_Reset()
+void Ultrasonic_Reset(uint32_t now_us)
 {
 	current_state = ULTRASONIC_IDLE_STATE;
 	result = ULTRASONIC_NOT_READY;
 
 	// Timestamp variables
-	trigger_start_us = RESET_VALUE;
-	measurement_start_us = RESET_VALUE;
+	trigger_start_us = now_us;
+	measurement_start_us = now_us;
 	t_rise = RESET_VALUE;
 	t_fall = RESET_VALUE;
 
@@ -288,7 +292,7 @@ void TIM2_IRQHandler(void)
 
 			// Configure for falling edge
 			TIM2->CCER &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP); 	// Clear (00)
-			TIM2->CCER |= TIM_CCER_CC3NP; 						// Set (01)
+			TIM2->CCER |= TIM_CCER_CC3P; 						// Set (01)
 
 			// Update current state
 			current_state = ULTRASONIC_ECHO_STATE;

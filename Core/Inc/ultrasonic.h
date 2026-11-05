@@ -65,7 +65,7 @@ bool Ultrasonic_HasNewSample(void);
 // Return false for a null pointer or when there is no result to take
 bool Ultrasonic_TakeSample(Ultrasonic_Sample *sample);
 
-void Ultrasonic_Reset(void);
+void Ultrasonic_Reset(uint32_t now_us);
 
 // Interrupt handler for TIM2. Used for TIM2_CH3 capture/compare.
 void TIM2_IRQHandler(void);
