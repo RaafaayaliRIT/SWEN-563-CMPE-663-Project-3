@@ -10,6 +10,7 @@
 #include "timer.h"
 #include "stm32l476xx.h"
 #include "custom_functions.h"
+#include "LED.h"
 
 // Add the measurement state and shared data you need
 // Decide which values are written by the ISR and read by the foreground
@@ -251,6 +252,22 @@ bool Ultrasonic_TakeSample(Ultrasonic_Sample *sample)
 		// Return false to show sample was not ready
 		return false;
 	}
+}
+
+void Ultrasonic_Reset()
+{
+	current_state = ULTRASONIC_IDLE_STATE;
+	result = ULTRASONIC_NOT_READY;
+
+	// Timestamp variables
+	trigger_start_us = RESET_VALUE;
+	measurement_start_us = RESET_VALUE;
+	t_rise = RESET_VALUE;
+	t_fall = RESET_VALUE;
+
+	// Distance variables
+	pulse_width = RESET_VALUE;
+	distance = RESET_VALUE;
 }
 
 //******************************************************************************************

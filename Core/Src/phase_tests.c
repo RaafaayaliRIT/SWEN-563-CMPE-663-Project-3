@@ -72,7 +72,6 @@ static void Sweep_Request(uint8_t position, uint32_t now_ms)
 		s_servo_ok = false;
 		s_view.servo_text = "SERVO ERROR"; // HOW DO WE PRINT "SERVO ERROR" <-- THIS IS HOW
 		s_view.servo_position_valid = false;
-		LED_On(); // added this since we had it
 	}
 
 	s_last_step_ms = now_ms;
@@ -190,6 +189,7 @@ void PhaseTests_Service(uint32_t now_ms)
 	// If a new valid sample is available
 	if(Ultrasonic_TakeSample(&sample))
 	{
+
 		// Save the distance in the phase 2 snapshot
 		s_view.sensor_distance_mm = sample.distance_mm;
 
@@ -199,9 +199,17 @@ void PhaseTests_Service(uint32_t now_ms)
 		// TODO - Show "SENSOR VALID"
 	}
 	// If the sample was invalid or was a null pointer
-	else
+	else if(sample.result == ULTRASONIC_TIMEOUT)
 	{
+
+		// Save the result into the phase 2 snapshot
+		s_view.sensor_result = sample.result;
 		// TODO - Show "SENSOR TIMEOUT"
+		LED_On();
+		Ultrasonic_Reset();
+		last_sample_us = now_us;
+
+
 	}
 
 #endif

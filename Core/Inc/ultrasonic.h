@@ -16,6 +16,7 @@
 #define ULTRASONIC_TRIGGER_US	 10U
 #define TIM2_INTERRUPT_PRIORITY  (1U)
 #define SPEED_OF_SOUND (0.343 /* Speed of sound is in mm/us */)
+#define RESET_VALUE (999 /* Value to set variables on reset */)
 
 // These are measurement results, not the sensor's internal states
 // Choose your own internal states as you design the measurement sequence
@@ -63,6 +64,8 @@ bool Ultrasonic_HasNewSample(void);
 // Return true only when you copy a new complete result into sample
 // Return false for a null pointer or when there is no result to take
 bool Ultrasonic_TakeSample(Ultrasonic_Sample *sample);
+
+void Ultrasonic_Reset(void);
 
 // Interrupt handler for TIM2. Used for TIM2_CH3 capture/compare.
 void TIM2_IRQHandler(void);

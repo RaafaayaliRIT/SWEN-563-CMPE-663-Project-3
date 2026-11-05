@@ -3,7 +3,7 @@ Core/Src/ultrasonic.o: ../Core/Src/ultrasonic.c ../Core/Inc/ultrasonic.h \
  ../Core/Inc/cmsis_version.h ../Core/Inc/cmsis_compiler.h \
  ../Core/Inc/cmsis_gcc.h ../Core/Inc/mpu_armv7.h \
  ../Core/Inc/system_stm32l4xx.h ../Core/Inc/custom_functions.h \
- ../Core/Inc/stm32l476xx.h
+ ../Core/Inc/stm32l476xx.h ../Core/Inc/LED.h
 ../Core/Inc/ultrasonic.h:
 ../Core/Inc/timer.h:
 ../Core/Inc/stm32l476xx.h:
@@ -15,3 +15,4 @@ Core/Src/ultrasonic.o: ../Core/Src/ultrasonic.c ../Core/Inc/ultrasonic.h \
 ../Core/Inc/system_stm32l4xx.h:
 ../Core/Inc/custom_functions.h:
 ../Core/Inc/stm32l476xx.h:
+../Core/Inc/LED.h:
