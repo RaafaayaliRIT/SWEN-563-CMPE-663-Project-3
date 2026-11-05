@@ -5,7 +5,6 @@
  * Created on: Oct 5, 2026
  *      Author: Mitesh Parikh
  */
-
 #include "race.h"
 #include "project_config.h"
 #include "keyboard.h"
@@ -15,122 +14,116 @@
 #include "LED.h"
 #include "stm32l476xx.h"
 #include "timebase.h"
+#include "custom_functions.h"
 
 
 // Route geometry: absolute distance at the end of each section
 // (0-40 miles, 40-60 miles, 60-100 miles, from project_config.h)
-static const uint32_t s_section_end_mm[3] = {
+static const uint32_t s_section_end_mm[3] =
+{
 	PROJECT_FIRST_CORNER_MILES  * PROJECT_MILE_MM,
 	PROJECT_SECOND_CORNER_MILES * PROJECT_MILE_MM,
 	PROJECT_TRACK_MILES         * PROJECT_MILE_MM
 };
 
-
-
-// Choose your car states, events and application data here
-// Use your state diagram and transition table to guide the implementation
-// The screen snapshot below is only a starting point for showing your work
+// ****Race display****
 static RaceDisplay_Snapshot s_view;
-
 
 // ****CAR MODEL****
 static Car_State s_state;
 static const char *s_fault_text;
-static uint8_t  s_section; // 0 = first straight, 1 = vertical, 2 = last straight
-static uint32_t s_position_mm; // absolute distance along the route
-static uint32_t s_position_rem; // leftover (mph * mm * ms) below 1mm, keeps progress smooth
-static uint32_t s_speed_mph; // 0->100 in 5mph steps
-static uint32_t s_drive_time_ms; // virtual time spent moving (in-game time)
-static uint32_t s_last_step_ms;       // real time of the last 10ms car update
-
+static uint8_t  s_section; 				// 0 = first straight, 1 = vertical, 2 = last straight
+static uint32_t s_position_mm; 			// absolute distance along the route
+static uint32_t s_position_rem; 		// leftover (mph * mm * ms) below 1mm, keeps progress smooth
+static uint32_t s_speed_mph; 			// 0->100 in 5mph steps
+static uint32_t s_drive_time_ms; 		// virtual time spent moving (in-game time)
+static uint32_t s_last_step_ms;       	// real time of the last 10ms car update
 
 // ****Up key hold tracking****
 // Only Up is held to drive; Down, Left, Right and R act once per press.
 // The terminal never reports a key release, so "released" means no Up arrived
 // within 750 ms of the first press, or 200ms of the last repeat.
-static bool s_hold; // Up is considered held
-static bool s_hold_repeated; // a repeat has arrived since the first press
-static uint32_t s_last_up_ms; // receive time of the most recent Up
+static bool s_hold; 					// Up is considered held
+static bool s_hold_repeated; 			// a repeat has arrived since the first press
+static uint32_t s_last_up_ms; 			// receive time of the most recent Up
 static uint32_t s_last_speed_change_ms;
-static uint32_t s_input_floor_ms;// Up events received before this are old and ignored
+static uint32_t s_input_floor_ms;		// Up events received before this are old and ignored
 
 //****Sensor****
 static bool s_sensor_started;
 static uint32_t s_last_request_us;
-static bool s_have_result; // false until the first result after startup
-static uint32_t s_result_us;// when the latest result completed
+static bool s_have_result; 				// false until the first result after startup
+static uint32_t s_result_us;			// when the latest result completed
 static Ultrasonic_Result s_sensor_result;
 static uint32_t s_distance_mm;
-static bool s_sensor_fresh;// latest result is younger than 250ms
-static bool s_obstacle; // fresh valid reading at or below 200mm
-static bool s_sensor_inhibit;// movement not allowed (obstacle, stale, error, none yet)
-static bool s_warning; // fresh valid reading above from 200mm to 400mm (keep driving, show warning)
-
+static bool s_sensor_fresh;				// latest result is younger than 250ms
+static bool s_obstacle; 				// fresh valid reading at or below 200mm
+static bool s_sensor_inhibit;			// movement not allowed (obstacle, stale, error, none yet)
+static bool s_warning; 					// fresh valid reading above from 200mm to 400mm (keep driving, show warning)
 
 //****Servo****
 static Servo_Mode s_servo_mode;
-static uint8_t s_servo_pos; // current commanded position
-static uint8_t s_servo_prev;// previous commanded position (for STUCK)
+static uint8_t s_servo_pos; 			// current commanded position
+static uint8_t s_servo_prev;			// previous commanded position (for STUCK)
 static bool s_sweep_up;
 static bool s_finale_up;
-static uint32_t s_servo_last_ms;// real time of the last position change
-static bool s_steer_pending; // an accepted turn is waiting to be shown on the servo
-static uint8_t s_steer_target; // steering position to show (Right = 5, Left = 0)
-
+static uint32_t s_servo_last_ms;		// real time of the last position change
+static bool s_steer_pending; 			// an accepted turn is waiting to be shown on the servo
+static uint8_t s_steer_target; 			// steering position to show (Right = 5, Left = 0)
 
 //****B1 emergency stop (Phase 4)****
-static volatile bool s_b1_request;// set by the B1 interrupt; read and cleared by the foreground
-static bool s_paused; // B1 emergency stop is active
-static bool s_b1_armed;  // a new press can be accepted (released for 50 ms)
-static uint32_t s_b1_last_pressed_ms; // last real time B1 was seen pressed
-
+static volatile bool s_b1_request;		// set by the B1 interrupt; read and cleared by the foreground
+static bool s_paused; 					// B1 emergency stop is active
+static bool s_b1_armed;  				// a new press can be accepted (released for 50 ms)
+static uint32_t s_b1_last_pressed_ms; 	// last real time B1 was seen pressed
 
 //****LED (Phase 5)****
-static Led_Pattern s_led_pattern; // pattern currently shown on LD2
-static uint32_t s_led_last_ms;// real time of the last blink toggle
+static Led_Pattern s_led_pattern; 		// pattern currently shown on LD2
+static uint32_t s_led_last_ms;			// real time of the last blink toggle
+
 
 //******************************************************************************************
 // HELPER FUNCTIONS
 //******************************************************************************************
-
-
 // B1 is pressed right now (B1 on PC13 reads low when pressed)
-static bool B1_IsPressed(){
+static bool B1_IsPressed()
+{
 	return (GPIOC->IDR & GPIO_IDR_ID13) == 0;
 }
 
-
-// true when time A is earlier than time B
-static bool Time_Before(uint32_t a, uint32_t b){
-	return (int32_t)(a - b) < 0;
-}
-
-// stop the car and clear the up hold, Up events received before floor_ms are
+// Stop the car and clear the up hold. Up events received before floor_ms are
 // treated as old, so a fresh up is needed to drive again
-static void Race_StopCar(uint32_t floor_ms){
+static void Race_StopCar(uint32_t floor_ms)
+{
 	s_speed_mph = 0;
 	s_hold = false;
 	s_hold_repeated = false;
 	s_input_floor_ms = floor_ms;
 
-	if (s_state == CAR_DRIVING){
+	if (s_state == CAR_DRIVING)
+	{
 		s_state = CAR_READY;
 	}
 }
 
 // Latch a fault; stop and stay stopped until R (reset)
-static void Race_Fault(const char *text, uint32_t now_ms){
+static void Race_Fault(const char *text, uint32_t now_ms)
+{
 	Race_StopCar(now_ms);
 	s_state = CAR_FAULT;
 	s_fault_text = text;
 }
 
 // command a servo position and remember the previous one
-static void Race_CommandServo(uint8_t position, uint32_t now_ms){
-	if (Servo_SetPosition(position)){
+static void Race_CommandServo(uint8_t position, uint32_t now_ms)
+{
+	if (Servo_SetPosition(position))
+	{
 		s_servo_prev = s_servo_pos;
 		s_servo_pos = position;
-	}else{
+	}
+	else
+	{
 		// The driver keeps the last valid pulse; stop the car
 		Race_Fault("SERVO ERROR", now_ms);
 	}
@@ -139,7 +132,8 @@ static void Race_CommandServo(uint8_t position, uint32_t now_ms){
 }
 
 // Start a new race at mile 0, zero speed, servo position 0
-static void Race_Restart(uint32_t now_ms){
+static void Race_Restart(uint32_t now_ms)
+{
 
 	// Car model: back to a stopped car at mile 0 with no progress and or drive time
 	s_state = CAR_READY;
@@ -172,7 +166,6 @@ static void Race_Restart(uint32_t now_ms){
 	Race_CommandServo(0, now_ms);
 }
 
-
 // Up hold release
 // Before any repeat: release 750ms after the first Up.
 // After repeats start: release 200ms after the last Up
@@ -180,43 +173,51 @@ static void Race_Restart(uint32_t now_ms){
 static void Race_CheckRelease(uint32_t check_ms)
 {
 	// nothing to release if Up is not being held
-	if (!s_hold){
+	if (!s_hold)
+	{
 		return;
 	}
 
 	uint32_t limit;
 	// Pick the release timeout: shorter once the PC has started repeating Up
-	if (s_hold_repeated){
+	if (s_hold_repeated)
+	{
 		limit = PROJECT_UP_TIMEOUT_MS;// 200ms
-	}else{
+	}
+	else
+	{
 		limit = PROJECT_FIRST_REPEAT_MS; //delay:750ms
 	}
 
 	// If no Up arrived within the timeout, the key has been released
-	if ((uint32_t)(check_ms - s_last_up_ms) > limit){
+	if ((uint32_t)(check_ms - s_last_up_ms) > limit)
+	{
 		// The key was released at the deadline; anything before it is old
 		Race_StopCar(s_last_up_ms + limit);
 	}
 }
 
-
 // Add one speed step if allowed.
-static void Race_Accelerate(uint32_t event_ms, uint32_t now_ms){
+static void Race_Accelerate(uint32_t event_ms, uint32_t now_ms)
+{
 	// No movement at a corner (waiting for the turn) or while the sensor inhibits
 	//// or during a B1 emergency stop(phase 4)
-	if (s_state == CAR_CORNER || s_sensor_inhibit || s_paused){
+	if (s_state == CAR_CORNER || s_sensor_inhibit || s_paused)
+	{
 		return;
 	}
 
 	// If the car is starting from rest, start the movement clock now
-	if (s_speed_mph == 0){
+	if (s_speed_mph == 0)
+	{
 		s_last_step_ms = now_ms;
 	}
 
 	s_speed_mph += PROJECT_SPEED_STEP_MPH;
 
 	// Cap the speed at 100mph
-	if (s_speed_mph > PROJECT_MAX_SPEED_MPH){
+	if (s_speed_mph > PROJECT_MAX_SPEED_MPH)
+	{
 		s_speed_mph = PROJECT_MAX_SPEED_MPH;
 	}
 
@@ -225,57 +226,67 @@ static void Race_Accelerate(uint32_t event_ms, uint32_t now_ms){
 }
 
 
-
 //******************************************************************************************
 // Keyboard: One helper function per command
 // t_ms is the Keyboard_Event's original receive time, not the time it's processed
 //******************************************************************************************
 
 // Up: start or refresh the hold and speed up (rate limited)
-static void Race_HandleUp(uint32_t t_ms, uint32_t now_ms){
+static void Race_HandleUp(uint32_t t_ms, uint32_t now_ms)
+{
 	// ignore Up after the finish or during a fault; only R recovers
-	if (s_state == CAR_FINISHED || s_state == CAR_FAULT){
+	if (s_state == CAR_FINISHED || s_state == CAR_FAULT)
+	{
 		return;
 	}
 
 	// ignore Up during a B1 emergency stop, B1 must resume first
-	if (s_paused){
+	if (s_paused)
+	{
 		return;
 	}
 
 	// ignore old Up events received before the last stop
-	if (Time_Before(t_ms, s_input_floor_ms)){
+	if (Time_Before(t_ms, s_input_floor_ms))
+	{
 		return;
 	}
 
 	// ignore Up while the path is blocked; a fresh Up after it clears will drive
-	if (s_sensor_inhibit){
+	if (s_sensor_inhibit)
+	{
 		return;
 	}
 
 	// if up is not already held, this is a fresh press; otherwise it is a repeat
-	if (!s_hold){
+	if (!s_hold)
+	{
 		// fresh press: start the hold and take the first speed step
 		s_hold = true;
 		s_hold_repeated = false;
 		s_last_up_ms = t_ms;
 		Race_Accelerate(t_ms, now_ms);
-	}else{
+	}
+	else
+	{
 		// Repeat: always refreshes the hold, speed change is rate limited
 		s_hold_repeated = true;
 		s_last_up_ms = t_ms;
 
 		// Speed up only if 100ms have passed since the last speed change
-		if ((uint32_t)(t_ms - s_last_speed_change_ms) >= PROJECT_SPEED_KEY_MS){
+		if ((uint32_t)(t_ms - s_last_speed_change_ms) >= PROJECT_SPEED_KEY_MS)
+		{
 			Race_Accelerate(t_ms, now_ms);
 		}
 	}
 }
 
 // Down: brake to zero and clear the hold
-static void Race_HandleDown(uint32_t t_ms){
-	//nothing to brake after the finish or during a fault
-	if (s_state == CAR_FINISHED || s_state == CAR_FAULT){
+static void Race_HandleDown(uint32_t t_ms)
+{
+	// nothing to brake after the finish or during a fault
+	if (s_state == CAR_FINISHED || s_state == CAR_FAULT)
+	{
 		return;
 	}
 
@@ -283,9 +294,11 @@ static void Race_HandleDown(uint32_t t_ms){
 }
 
 // Right:take the turn only when waiting at the mile 40 corner
-static void Race_HandleRight(){
+static void Race_HandleRight()
+{
 	// A wrong or early turn, or a turn during a B1 stop leaves the route unchanged
-	if (s_state != CAR_CORNER || s_section != 0 || s_paused){
+	if (s_state != CAR_CORNER || s_section != 0 || s_paused)
+	{
 		return;
 	}
 
@@ -298,9 +311,11 @@ static void Race_HandleRight(){
 }
 
 // Left:take the turn only when waiting at the mile 60 corner
-static void Race_HandleLeft(){
+static void Race_HandleLeft()
+{
 	// A wrong or early turn, or a turn during a B1 stop leaves the route unchanged
-	if (s_state != CAR_CORNER || s_section != 1 || s_paused){
+	if (s_state != CAR_CORNER || s_section != 1 || s_paused)
+	{
 		return;
 	}
 
@@ -313,25 +328,22 @@ static void Race_HandleLeft(){
 }
 
 //restart, but never bypass a B1 stop or a held/bouncing button
-static void Race_HandleRestart(uint32_t now_ms){
+static void Race_HandleRestart(uint32_t now_ms)
+{
 	// reset is ignored during a B1 stop, press B1 to resume first
-	if (s_paused){
+	if (s_paused)
+	{
 		return;
 	}
 
 	// reset is ignored while B1 is held or still settling after a press
-	if (B1_IsPressed() || !s_b1_armed){
+	if (B1_IsPressed() || !s_b1_armed)
+	{
 		return;
 	}
 
 	Race_Restart(now_ms);
 }
-
-
-
-
-
-
 
 // Route one keyboard event to its handler
 static void Race_HandleEvent(const Keyboard_Event *ev, uint32_t now_ms)
@@ -373,18 +385,21 @@ static void Race_HandleEvent(const Keyboard_Event *ev, uint32_t now_ms)
 	}
 }
 
+
 //******************************************************************************************
 // Sensor: keep measurements running and apply the proximity policy
 //******************************************************************************************
-static void Race_ServiceSensor(){
+static void Race_ServiceSensor()
+{
 	uint32_t now_us = timer_get_us();
-
 	Ultrasonic_Service(now_us);
 
 	// same pattern from phase_test.c for phase2
-	if (GetState() == ULTRASONIC_IDLE_STATE && (!s_sensor_started || timer_elapsed_us(s_last_request_us, now_us) >= ULTRASONIC_INTERVAL_US)){
+	if (GetState() == ULTRASONIC_IDLE_STATE && (!s_sensor_started || timer_elapsed_us(s_last_request_us, now_us) >= ULTRASONIC_INTERVAL_US))
+	{
 		// Record the request time only if the driver accepted the request
-		if (Ultrasonic_Start(now_us)){
+		if (Ultrasonic_Start(now_us))
+		{
 			s_last_request_us = now_us;
 			s_sensor_started = true;
 		}
@@ -394,12 +409,16 @@ static void Race_ServiceSensor(){
 	sample.result = ULTRASONIC_NOT_READY;
 
 	// If a new valid sample is ready, save its distance and completion time
-	if (Ultrasonic_TakeSample(&sample)){
+	if (Ultrasonic_TakeSample(&sample))
+	{
 		s_have_result = true;
 		s_sensor_result = ULTRASONIC_OK;
 		s_distance_mm = sample.distance_mm;
 		s_result_us = sample.timestamp_us;
-	}else if(sample.result == ULTRASONIC_TIMEOUT || sample.result == ULTRASONIC_ERROR){ // else if the attempt timed out or failed, save that result instead
+	}
+	// else if the attempt timed out or failed, save that result instead
+	else if(sample.result == ULTRASONIC_TIMEOUT || sample.result == ULTRASONIC_ERROR)
+	{
 		// A timeout result has no completion time stamp in the sample; it finished now
 		s_have_result = true;
 		s_sensor_result = sample.result;
@@ -411,9 +430,6 @@ static void Race_ServiceSensor(){
 
 	// Fresh OK at or below 20cm -> obstacle
 	s_obstacle = (s_sensor_fresh && s_sensor_result == ULTRASONIC_OK && s_distance_mm <= PROJECT_OBSTACLE_MM);
-
-
-
 
 	// Fresh OK above 20cm but at or below 40cm -> warning range (keep driving, show warning)
 	s_warning = (s_sensor_fresh && s_sensor_result == ULTRASONIC_OK && s_distance_mm > PROJECT_OBSTACLE_MM && s_distance_mm <= RACE_WARNING_MM);
@@ -429,7 +445,8 @@ static void Race_ServiceSensor(){
 //******************************************************************************************
 // car model: advance the virtual car in 10ms real steps at 100x virtual time
 //******************************************************************************************
-static void Race_AdvanceOneStep(){
+static void Race_AdvanceOneStep()
+{
 	// 10ms real = 1000ms virtual
 	const uint32_t virtual_ms = PROJECT_STEP_MS * PROJECT_TIME_SCALE;
 
@@ -443,40 +460,46 @@ static void Race_AdvanceOneStep(){
 
 	uint32_t end_mm = s_section_end_mm[s_section];
 	// if this step would reach or pass the end of the section, stop exactly there
-	if (s_position_mm + delta_mm >= end_mm){
+	if (s_position_mm + delta_mm >= end_mm)
+	{
 		//exactly to the corner or finish; never carry through a turn
 		s_position_mm = end_mm;
 		s_position_rem = 0;
 		s_speed_mph = 0;
 
 		//end of the last section is the finish; otherwise it is a corner
-		if (s_section == 2){
+		if (s_section == 2)
+		{
 			s_state = CAR_FINISHED;
 			s_hold = false;
-		}else{
+		}
+		else
+		{
 			// Keep the hold: after the turn, driving can continue on the next up
 			s_state = CAR_CORNER;
 		}
 	}
 	else
 	{
-
 		s_position_mm += delta_mm; // still short of the end, just move forward
 	}
 }
 
-static void Race_UpdateCar(uint32_t now_ms){
+static void Race_UpdateCar(uint32_t now_ms)
+{
 
 	// The release deadline may have passed with no new event
 	Race_CheckRelease(now_ms);
 
 	// If an obstacle, sensor problem or B1 stop appears while driving, stop right away
-	if ((s_sensor_inhibit || s_paused) && s_state == CAR_DRIVING){
+	if ((s_sensor_inhibit || s_paused) && s_state == CAR_DRIVING)
+	{
 		Race_StopCar(now_ms);
 	}
 
 	// If the car is not driving, there is no movement to apply
-	if (s_state != CAR_DRIVING){
+	if (s_state != CAR_DRIVING)
+	{
 		// Not moving: keep the clock current so nothing builds up
 		s_last_step_ms = now_ms;
 		return;
@@ -484,12 +507,14 @@ static void Race_UpdateCar(uint32_t now_ms){
 
 	uint32_t elapsed = (uint32_t)(now_ms - s_last_step_ms);
 	// If the loop was late by more than 50ms, stop
-	if (elapsed > RACE_STALL_MS){
+	if (elapsed > RACE_STALL_MS)
+	{
 		Race_Fault("DRIVE STALL, PRESS R", now_ms);
 		return;
 	}
 	// while at least 10ms of real time is still unprocessed and the car is still driving, move the car one step (1s of virtual time) and use up those 10ms. Stops early if a step reaches a corner or the finish.
-	while (elapsed >= PROJECT_STEP_MS && s_state == CAR_DRIVING){
+	while (elapsed >= PROJECT_STEP_MS && s_state == CAR_DRIVING)
+	{
 		Race_AdvanceOneStep();
 		s_last_step_ms += PROJECT_STEP_MS;
 		elapsed -= PROJECT_STEP_MS;
@@ -499,7 +524,8 @@ static void Race_UpdateCar(uint32_t now_ms){
 //******************************************************************************************
 // Servo animation from the car condition, 250ms real dwell
 //******************************************************************************************
-static Servo_Mode Race_ChooseServoMode(){
+static Servo_Mode Race_ChooseServoMode()
+{
 	// Checked in priority order:
 	//finished,
 	//fault,
@@ -509,61 +535,69 @@ static Servo_Mode Race_ChooseServoMode(){
 	//hold
 
 	// Finished: run the finale, or stay done if it already ran
-	if (s_state == CAR_FINISHED){
+	if (s_state == CAR_FINISHED)
+	{
 		// If the finale already ran, stay done; otherwise run it
-		if (s_servo_mode == SERVO_MODE_DONE){
+		if (s_servo_mode == SERVO_MODE_DONE)
+		{
 			return SERVO_MODE_DONE;
 		}
 		return SERVO_MODE_FINALE;
 	}
 
 	// fault, hold the current position
-	if (s_state == CAR_FAULT){
+	if (s_state == CAR_FAULT)
+	{
 		return SERVO_MODE_HOLD;
 	}
 
 	// B1 emergency stop: hold the current position
-	if(s_paused){
+	if(s_paused)
+	{
 		return SERVO_MODE_HOLD;
 	}
 
 	// Obstacle or corner stop: alternate between two positions
-	if (s_obstacle || s_state == CAR_CORNER){
+	if (s_obstacle || s_state == CAR_CORNER)
+	{
 		return SERVO_MODE_STUCK;
 	}
 
 	// moving: sweep
-	if (s_state == CAR_DRIVING){
+	if (s_state == CAR_DRIVING)
+	{
 		return SERVO_MODE_SWEEP;
 	}
 
 	return SERVO_MODE_HOLD;    // ordinary stop or sensor not ready
 }
 
-
 // Set up a new animation when the mode changes
-static void Race_EnterServoMode(Servo_Mode wanted){
+static void Race_EnterServoMode(Servo_Mode wanted)
+{
 	// Entering STUCK with no distinct previous position, pick a neighbor
-	if (wanted == SERVO_MODE_STUCK && s_servo_prev == s_servo_pos){
+	if (wanted == SERVO_MODE_STUCK && s_servo_prev == s_servo_pos)
+	{
 		// Use the position above or below if already at 5
-		if (s_servo_pos < SERVO_LAST_POSITION){
+		if (s_servo_pos < SERVO_LAST_POSITION)
+		{
 			s_servo_prev = (uint8_t)(s_servo_pos + 1);
 		}
-		else{
+		else
+		{
 			s_servo_prev = (uint8_t)(s_servo_pos - 1);
 		}
 	}
 
 	//entering FINALE: go toward 5 first, even if the sweep was heading down.
 	// already at 5 -> just return to 0
-	if (wanted == SERVO_MODE_FINALE){
+	if (wanted == SERVO_MODE_FINALE)
+	{
 		s_finale_up = (s_servo_pos != SERVO_LAST_POSITION);
 	}
 
 	s_servo_mode = wanted;
 }
-
-
 
 //STUCK: alternate between the previous and current positions
 static void Race_ServoStuckStep(uint32_t now_ms)
@@ -572,71 +606,81 @@ static void Race_ServoStuckStep(uint32_t now_ms)
 	Race_CommandServo(s_servo_prev, now_ms);
 }
 
-
-
 // SWEEP: one step of 0 1 2 3 4 5 4 3 2 1 0
-static void Race_ServoSweepStep(uint32_t now_ms){
+static void Race_ServoSweepStep(uint32_t now_ms)
+{
 	// At 5 going up, turn down; at 0 going down, turn up
-	if (s_sweep_up && s_servo_pos >= SERVO_LAST_POSITION){
+	if (s_sweep_up && s_servo_pos >= SERVO_LAST_POSITION)
+	{
 		s_sweep_up = false;
 	}
-	else
-		if (!s_sweep_up && s_servo_pos == 0){
-			s_sweep_up = true;
+	else if (!s_sweep_up && s_servo_pos == 0)
+	{
+		s_sweep_up = true;
 	}
 
 	// Step one position in the current direction
-	if (s_sweep_up){
+	if (s_sweep_up)
+	{
 		Race_CommandServo((uint8_t)(s_servo_pos + 1), now_ms);
 	}
-	else{
+	else
+	{
 		Race_CommandServo((uint8_t)(s_servo_pos - 1), now_ms);
 	}
 }
 
 //FINALE: one step of "up to 5, then down to 0", run once
-static void Race_ServoFinaleStep(uint32_t now_ms){
+static void Race_ServoFinaleStep(uint32_t now_ms)
+{
 	// Going up: step up and turn around at 5
-	if (s_finale_up){
+	if (s_finale_up)
+	{
 		Race_CommandServo((uint8_t)(s_servo_pos + 1), now_ms);
 
 		// Reached 5 then head back down
-		if (s_servo_pos >= SERVO_LAST_POSITION){
+		if (s_servo_pos >= SERVO_LAST_POSITION)
+		{
 			s_finale_up = false;
 		}
-	}else
+	}
+	else
 	{   //// Going down: step down and finish at 0
 		Race_CommandServo((uint8_t)(s_servo_pos - 1), now_ms);
 
 		// Reached 0: the finale is done (once only; never restarts)
-		if (s_servo_pos == 0){
+		if (s_servo_pos == 0)
+		{
 			s_servo_mode = SERVO_MODE_DONE;
 		}
 	}
 }
 
 // Pick the animation from the car condition and take one step every 250ms
-static void Race_UpdateServo(uint32_t now_ms){
+static void Race_UpdateServo(uint32_t now_ms)
+{
 	Servo_Mode wanted = Race_ChooseServoMode();
 
 	// If the animation is changing, set up the new one
-	if (wanted != s_servo_mode){
+	if (wanted != s_servo_mode)
+	{
 		Race_EnterServoMode(wanted);
 	}
 
 	// Wait 250ms between position changes
-	if ((uint32_t)(now_ms - s_servo_last_ms) < PROJECT_SERVO_STEP_MS){
+	if ((uint32_t)(now_ms - s_servo_last_ms) < PROJECT_SERVO_STEP_MS)
+	{
 		return;
 	}
 
 	// If a turn was just accepted, show the steering position first.
 	// The car is stopped after a turn (HOLD), so the servo stays there until it drives.
-	if (s_steer_pending){
+	if (s_steer_pending)
+	{
 		s_steer_pending = false;
 		Race_CommandServo(s_steer_target, now_ms);
 		return;
 	}
-
 
 	switch (s_servo_mode)
 	{
@@ -670,9 +714,11 @@ static void Race_UpdateServo(uint32_t now_ms){
 // Only cleared when it was set, so no interrupt masking is needed: if the ISR
 // fires again between the check and the clear, that second edge is just
 // merged into the press we are already returning.
-static bool Race_TakeB1Request(){
+static bool Race_TakeB1Request()
+{
 	// No request waiting
-	if (!s_b1_request){
+	if (!s_b1_request)
+	{
 		return false;
 	}
 
@@ -681,18 +727,23 @@ static bool Race_TakeB1Request(){
 }
 
 // Accepted press: pause if running, resume if paused
-static void Race_ToggleB1Stop(uint32_t now_ms){
+static void Race_ToggleB1Stop(uint32_t now_ms)
+{
 
 	// Once finished, B1 leaves the car finished and lets the servo finale complete
-	if (s_state == CAR_FINISHED){
+	if (s_state == CAR_FINISHED)
+	{
 		return;
 	}
 
-	if (!s_paused){
+	if (!s_paused)
+	{
 		// Stop: speed 0, clear the Up hold. Position, section and drive time are kept.
 		s_paused = true;
 		Race_StopCar(now_ms);
-	}else{
+	}
+	else
+	{
 		// resume at zero speed, only an Up received after this point drives.
 		// An obstacle, sensor fault, latched fault or corner turn still applies.
 		s_paused = false;
@@ -703,18 +754,21 @@ static void Race_ToggleB1Stop(uint32_t now_ms){
 	Keyboard_DiscardPending(now_ms);
 }
 
-static void Race_ServiceB1(uint32_t now_ms){
+static void Race_ServiceB1(uint32_t now_ms)
+{
 	bool pressed = B1_IsPressed();
 	bool request = Race_TakeB1Request();   // read and clear any edge the ISR latched
 
 	// Remember the last time B1 was seen pressed (held or bouncing)
-	if (pressed){
+	if (pressed)
+	{
 		s_b1_last_pressed_ms = now_ms;
 	}
 
 	// if armed, accept a press from the ISR edge or from the pin level.
 	// The level check catches a button already held at startup.
-	if (s_b1_armed && (request || pressed)){
+	if (s_b1_armed && (request || pressed))
+	{
 		s_b1_armed = false;// one press only, until released again
 		s_b1_last_pressed_ms = now_ms;
 		Race_ToggleB1Stop(now_ms);
@@ -722,7 +776,8 @@ static void Race_ServiceB1(uint32_t now_ms){
 	}
 
 	// If not armed, re-arm only after B1 has been released continuously for 50ms
-	if (!s_b1_armed && !pressed && (uint32_t)(now_ms - s_b1_last_pressed_ms) >= PROJECT_BUTTON_RELEASE_MS){
+	if (!s_b1_armed && !pressed && (uint32_t)(now_ms - s_b1_last_pressed_ms) >= PROJECT_BUTTON_RELEASE_MS)
+	{
 		s_b1_armed = true;
 	}
 }
@@ -731,7 +786,8 @@ static void Race_ServiceB1(uint32_t now_ms){
 // LED feedback (Phase 5): chosen from the car condition, blinking uses real time
 //******************************************************************************************
 // pattern was copied from Race_ChooseServoMode()
-static Led_Pattern Race_ChooseLedPattern(){
+static Led_Pattern Race_ChooseLedPattern()
+{
 	// Checked in priority order:
 	//finished,
 	//B1 stop or fault,
@@ -740,22 +796,26 @@ static Led_Pattern Race_ChooseLedPattern(){
 	//off
 
 	// Finished: off, even during the servo finale or while B1 is pressed
-	if (s_state == CAR_FINISHED){
+	if (s_state == CAR_FINISHED)
+	{
 		return LED_PATTERN_OFF;
 	}
 
 	// B1 emergency stop or fault: blink 2 Hz
-	if (s_paused || s_state == CAR_FAULT){
+	if (s_paused || s_state == CAR_FAULT)
+	{
 		return LED_PATTERN_BLINK_2HZ;
 	}
 
 	// automatic obstacle brake: blink 1 Hz
-	if (s_obstacle){
+	if (s_obstacle)
+	{
 		return LED_PATTERN_BLINK_1HZ;
 	}
 
 	// MOVING: steady on
-	if (s_state == CAR_DRIVING){
+	if (s_state == CAR_DRIVING)
+	{
 		return LED_PATTERN_ON;
 	}
 
@@ -764,12 +824,14 @@ static Led_Pattern Race_ChooseLedPattern(){
 
 
 
-static void Race_UpdateLed(uint32_t now_ms){
+static void Race_UpdateLed(uint32_t now_ms)
+{
 	Led_Pattern wanted = Race_ChooseLedPattern();
 
 	// If the condition changed, show the new output right away;
 	// a blinking pattern starts with the LED on
-	if (wanted != s_led_pattern){
+	if (wanted != s_led_pattern)
+	{
 		s_led_pattern = wanted;
 		s_led_last_ms = now_ms;
 
@@ -783,19 +845,28 @@ static void Race_UpdateLed(uint32_t now_ms){
 
 	// Pick the half period for a blinking pattern; steady patterns have nothing to do
 	uint32_t half_ms;
-	if (s_led_pattern == LED_PATTERN_BLINK_1HZ){
+	if (s_led_pattern == LED_PATTERN_BLINK_1HZ)
+	{
 		half_ms = RACE_LED_1HZ_HALF_MS;// 500ms
-	}else if (s_led_pattern == LED_PATTERN_BLINK_2HZ){
+	}
+	else if (s_led_pattern == LED_PATTERN_BLINK_2HZ)
+	{
 		half_ms = RACE_LED_2HZ_HALF_MS; // 250ms
-	}else{
+	}
+	else
+	{
 		return;
 	}
 
 	// Toggle once each half period of real time
-	if ((uint32_t)(now_ms - s_led_last_ms) >= half_ms){
-		if (LED_IsOn()){
+	if ((uint32_t)(now_ms - s_led_last_ms) >= half_ms)
+	{
+		if (LED_IsOn())
+		{
 			LED_Off();
-		}else{
+		}
+		else
+		{
 			LED_On();
 		}
 		s_led_last_ms = now_ms;
@@ -807,53 +878,64 @@ static void Race_UpdateLed(uint32_t now_ms){
 //******************************************************************************************
 // Fill the screen snapshot from the application data
 //******************************************************************************************
-static const char *Race_StateText(){
+static const char *Race_StateText()
+{
 	// Show the highest-priority condition first
-	if (s_state == CAR_FAULT){
+	if (s_state == CAR_FAULT)
+	{
 		return s_fault_text;
 	}
 
-	if (s_state == CAR_FINISHED){
+	if (s_state == CAR_FINISHED)
+	{
 		return "FINISHED";
 	}
 
 
-	if(s_paused){
+	if(s_paused)
+	{
 		return "B1 STOP - PRESS B1";
 	}
 
-	if (s_obstacle){
+	if (s_obstacle)
+	{
 		return "OBSTACLE BRAKE";
 	}
 
-	if (s_sensor_inhibit){
+	if (s_sensor_inhibit)
+	{
 		return "SENSOR NOT READY";
 	}
 
-	if (s_state == CAR_CORNER){
+	if (s_state == CAR_CORNER)
+	{
 		// Mile 40 needs Right, mile 60 needs Left
-		if (s_section == 0){
+		if (s_section == 0)
+		{
 			return "CORNER - PRESS RIGHT";
-		}else{
+		}
+		else
+		{
 			return "CORNER - PRESS LEFT";
 		}
 
 	}
 
 	// Object in the warning range, still allowed to drive
-	if (s_warning){
+	if (s_warning)
+	{
 		return "OBSTACLE WARNING";
 	}
 
 
-	if (s_state == CAR_DRIVING){
+	if (s_state == CAR_DRIVING)
+	{
 		return "DRIVING";
 	}
 
 
 	return "READY";
 }
-
 
 static const char *Race_ServoText()
 {
@@ -877,7 +959,6 @@ static const char *Race_ServoText()
 		return "HOLD";
 	}
 }
-
 
 static void Race_UpdateSnapshot()
 {
@@ -937,7 +1018,6 @@ void Race_Init(void)
 	s_sensor_inhibit = true;
 	s_warning = false;
 
-
 	// B1: not paused, armed. A button held at startup is caught by the (phase 4)
 	// level check in Race_ServiceB1 on the first pass.
 	s_b1_request = false;
@@ -950,12 +1030,9 @@ void Race_Init(void)
 	s_led_last_ms = now_ms;
 	LED_Off();
 
-
 	//car stopped at mile 0, servo at position 0
 	Race_Restart(now_ms);
 	Race_UpdateSnapshot();
-
-
 }
 
 //******************************************************************************************

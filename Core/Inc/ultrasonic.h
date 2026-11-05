@@ -11,17 +11,20 @@
 #include <stdbool.h>
 #include <stdio.h> // For null pointer
 
-#define ULTRASONIC_INTERVAL_US   80000U
-#define ULTRASONIC_TIMEOUT_US    30000U
-#define ULTRASONIC_TRIGGER_US	 10U
+// #defines
+#define ULTRASONIC_INTERVAL_US   (80000U)
+#define ULTRASONIC_TIMEOUT_US    (30000U)
+#define ULTRASONIC_TRIGGER_US	 (10U)
 #define TIM2_INTERRUPT_PRIORITY  (1U)
-#define SPEED_OF_SOUND (0.343 /* Speed of sound is in mm/us */)
-#define RESET_VALUE (999 /* Value to set variables on reset */)
+// Distance conversion: 343 m/s = 0.343 mm/us, and the echo is a round trip,
+// so distance_mm = echo_us * 0.343 / 2 = echo_us * 343 / 2000.
+#define SOUND_MM_PER_US_NUM (343)
+#define SOUND_MM_PER_US_DEN (2000)
 
-// These are measurement results, not the sensor's internal states
-// Choose your own internal states as you design the measurement sequence
 
-typedef enum {
+// Enums
+typedef enum
+{
 	ULTRASONIC_IDLE_STATE,			// Before TRIG pulse
 	ULTRASONIC_TRIGGER_STATE, 		// During TRIG pulse
 	ULTRASONIC_BURST_STATE,			// Sensor is sending sonic burst
@@ -30,14 +33,16 @@ typedef enum {
 	ULTRASONIC_TIMEOUT_STATE		// Sensor never recieved echo
 } Ultrasonic_State;
 
-typedef enum {
+typedef enum
+{
 	ULTRASONIC_OK,					// Distance has been calculated
 	ULTRASONIC_TIMEOUT,				// Timed out while waiting for echo
 	ULTRASONIC_ERROR,				// An error occurred finding a distance
 	ULTRASONIC_NOT_READY			// Sensor has not found a distance
 } Ultrasonic_Result;
 
-typedef struct {
+typedef struct
+{
 	uint32_t sequence;				// ??? TODO - what is this
 	uint32_t timestamp_us;			// Current time
 	uint32_t echo_us;				// Pulse width
@@ -64,8 +69,6 @@ bool Ultrasonic_HasNewSample(void);
 // Return true only when you copy a new complete result into sample
 // Return false for a null pointer or when there is no result to take
 bool Ultrasonic_TakeSample(Ultrasonic_Sample *sample);
-
-void Ultrasonic_Reset(uint32_t now_us);
 
 // Interrupt handler for TIM2. Used for TIM2_CH3 capture/compare.
 void TIM2_IRQHandler(void);
@@ -108,6 +111,23 @@ void TIM2_IRQHandler(void);
 			// Mark the sample complete
 			// Restore rising-edge capture for the next measurement
 /*************************/
+
+/**** Wavedrom State and Timing Diagram ****/
+/*
+{ "signal": [
+  { "name": "Trigger", "wave": "L....H...L........................" },
+  { "name": "Sonic Burst",   "wave": "L..........HLHLHLHL..............." },
+  { "name": "Echo",       "wave": "L...................H........L...." },
+  {name: 'current_state', wave: '6....3...4..........5........7....', data: ['IDLE', 'TRIGGER', 'BURST', 'ECHO', 'COMPLETE']},
+  {name: 'Timeout', wave: '........x8...................x....', data: ['trigger_time_elapsed']},
+  {name: 'pulse_width', wave: '...................x8........x....', data: ['pulse_width']},
+],
+  "head": {
+    "text": "Ultrasonic State and Timing Diagram"
+  }
+}
+*/
+/*******************************************/
 
 
 #endif /* NUCLEO476_ULTRASONIC_H_ */

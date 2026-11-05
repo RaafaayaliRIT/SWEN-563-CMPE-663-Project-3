@@ -11,17 +11,6 @@
 #include "timebase.h"
 #include "LED.h"
 
-//const uint32_t POSITION_INCREMENT = ((SERVO_MAX_US-SERVO_MIN_US) / SERVO_LAST_POSITION);
-//const uint16_t POSITIONS[] =
-//{
-//	SERVO_MIN_US,
-//	SERVO_MIN_US + POSITION_INCREMENT * 1,
-//	SERVO_MIN_US + POSITION_INCREMENT * 2,
-//	SERVO_MIN_US + POSITION_INCREMENT * 3,
-//	SERVO_MIN_US + POSITION_INCREMENT * 4,
-//	SERVO_MAX_US
-//};
-
 // Sweep direction
 typedef enum
 {
@@ -42,11 +31,6 @@ static bool s_servo_ok = true; // false = error state;
 static bool s_sensor_started = false;  // false until the first request
 static uint32_t s_last_request_us = 0; // when the last measurement was started
 
-
-//int64_t last_time = -1;
-//uint8_t current_position = 0;
-//uint8_t direction = 0; // 0 for up, 1 for down
-//bool isSuccessful = true;
 
 // Add the test data you need for your sweep and sensor checks
 // You can use these exercises or test directly in your car application
@@ -196,7 +180,6 @@ void PhaseTests_Service(uint32_t now_ms)
 		}
 
 	}
-
 
 	Ultrasonic_Sample sample;
 	sample.result = ULTRASONIC_NOT_READY;
