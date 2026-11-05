@@ -37,7 +37,7 @@ typedef enum {
 } Ultrasonic_Result;
 
 typedef struct {
-	uint32_t sequence;				// ???
+	uint32_t sequence;				// ??? TODO - what is this
 	uint32_t timestamp_us;			// Current time
 	uint32_t echo_us;				// Pulse width
 	uint32_t distance_mm;			// Calculated distance
